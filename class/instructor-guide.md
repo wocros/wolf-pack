@@ -57,14 +57,21 @@ check out for the rest of the class.
 ## Ideal Room Setup
 
 - Everyone on laptops (not tablets — they need a real keyboard)
-- WiFi that can handle 15–20 simultaneous SSH connections
+- WiFi that can handle 10 simultaneous SSH connections — test this before class day,
+  hotel/venue "business WiFi" often blocks port 22 (the SSH port). If it does,
+  students can use Hostinger's built-in browser console as a fallback.
 - Your screen visible to everyone
 - You able to walk the room — you will be walking constantly on Day 1
 
 **Do you need a helper?**
-Yes, if you have more than 8 students. One stuck student can derail the whole
-room's momentum. A second person walking the room catches problems before they
-become crises. Even a previous Wolf Pack graduate works well here.
+Yes — you have 10 students, which is one too many to manage solo on Day 1.
+One stuck student at the SSH step can pull you away from the room for 10 minutes
+while 9 others sit idle or get confused.
+
+Bring one helper. Their job is simple: walk the room during setup steps while
+you lead from the front. A Crane member who's technical, or anyone who has
+already gone through this setup, works perfectly. Brief them the night before
+on the 4–5 common errors in the setup section below.
 
 ---
 
