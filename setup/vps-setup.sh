@@ -98,7 +98,12 @@ while true; do
     ok "API key works!"
     break
   elif [[ "$HTTP_STATUS" == "401" ]]; then
-    warn "That key was rejected (incorrect or expired). Please double-check and try again."
+    warn "That key was rejected. Two common reasons:"
+    warn "  1. You haven't added billing credit at console.anthropic.com → Billing"
+    warn "  2. The key was copied incorrectly (check for extra spaces)"
+    echo ""
+    read -p "  Try a different key (t), or save this one anyway (s)? " CHOICE
+    [[ "$CHOICE" == "s" ]] && break
   elif [[ "$HTTP_STATUS" == "429" ]]; then
     warn "Key looks valid but has hit a rate limit — that's fine, saving it anyway."
     break
