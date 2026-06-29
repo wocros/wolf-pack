@@ -1,0 +1,594 @@
+/* =============================================================================
+   BPM Owner Portal — Styles
+
+   Separate from the staff command center. Light theme, owner-facing.
+   ============================================================================= */
+
+/* --- Reset & base ---------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --brand-navy:      #1a2b5e;
+  --brand-blue:      #2563eb;
+  --brand-blue-lt:   #eff6ff;
+  --color-success:   #16a34a;
+  --color-success-lt:#f0fdf4;
+  --color-warning:   #d97706;
+  --color-warning-lt:#fffbeb;
+  --color-danger:    #dc2626;
+  --color-danger-lt: #fef2f2;
+  --color-bg:        #f5f7fa;
+  --color-surface:   #ffffff;
+  --color-border:    #e2e8f0;
+  --color-text:      #1e293b;
+  --color-text-muted:#64748b;
+  --shadow-sm:       0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:       0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+  --radius:          10px;
+  --radius-sm:       6px;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* --- Utility --------------------------------------------------------------- */
+.flex        { display: flex; }
+.items-center{ align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-8       { gap: 8px; }
+.gap-12      { gap: 12px; }
+.gap-16      { gap: 16px; }
+.text-muted  { color: var(--color-text-muted); }
+.text-sm     { font-size: 0.85rem; }
+.font-bold   { font-weight: 700; }
+.mt-8        { margin-top: 8px; }
+.mt-16       { margin-top: 16px; }
+.mt-24       { margin-top: 24px; }
+.mb-8        { margin-bottom: 8px; }
+.mb-16       { margin-bottom: 16px; }
+.mb-24       { margin-bottom: 24px; }
+
+/* --- Portal wrapper -------------------------------------------------------- */
+.portal-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+/* --- Portal header --------------------------------------------------------- */
+.portal-header {
+  background: var(--brand-navy);
+  color: #fff;
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.portal-brand {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.portal-brand span {
+  opacity: 0.55;
+  font-weight: 400;
+}
+
+.portal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.85rem;
+}
+
+.portal-user {
+  opacity: 0.8;
+}
+
+.btn-signout {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 5px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-signout:hover { background: rgba(255,255,255,0.22); }
+
+/* --- Portal hero (big headline metric) ------------------------------------- */
+.portal-hero {
+  background: linear-gradient(135deg, var(--brand-navy) 0%, #2563eb 100%);
+  color: #fff;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.portal-hero-eyebrow {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
+
+.portal-hero-number {
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.portal-hero-label {
+  font-size: 1rem;
+  opacity: 0.85;
+  margin-bottom: 24px;
+}
+
+.portal-hero-sub-grid {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 8px;
+}
+
+.portal-hero-sub-item {
+  text-align: center;
+}
+
+.portal-hero-sub-number {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.portal-hero-sub-label {
+  font-size: 0.72rem;
+  opacity: 0.7;
+  margin-top: 3px;
+}
+
+/* --- Section headings ------------------------------------------------------ */
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.section-sub {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+}
+
+/* --- Cards ----------------------------------------------------------------- */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 24px;
+}
+
+.card + .card {
+  margin-top: 16px;
+}
+
+/* --- Stat grid (properties summary) --------------------------------------- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  text-align: center;
+}
+
+.stat-card-number {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.stat-card-label {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: 3px;
+}
+
+/* --- Property cards -------------------------------------------------------- */
+.property-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  border-left-width: 4px;
+}
+
+.property-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.property-name {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.property-units-text {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.occupancy-badge {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.occ-full    { background: var(--color-success-lt); color: var(--color-success); }
+.occ-partial { background: var(--color-warning-lt); color: var(--color-warning); }
+.occ-low     { background: var(--color-danger-lt);  color: var(--color-danger);  }
+
+.property-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.property-stat {
+  background: var(--color-bg);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.property-stat-value {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.property-stat-label {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* --- Occupancy bar --------------------------------------------------------- */
+.occ-bar-track {
+  height: 5px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px 0 8px;
+}
+
+.occ-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s;
+}
+
+/* --- Work orders list ------------------------------------------------------ */
+.wo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.wo-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  border-bottom: 2px solid var(--color-border);
+  padding: 6px 12px;
+}
+
+.wo-table th:first-child { padding-left: 0; }
+.wo-table th:last-child  { padding-right: 0; text-align: right; }
+
+.wo-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.wo-table td:first-child { padding-left: 0; }
+.wo-table td:last-child  { padding-right: 0; text-align: right; }
+
+.wo-table tr:last-child td { border-bottom: none; }
+
+.wo-category {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  margin-bottom: 1px;
+}
+
+.wo-description {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.status-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.status-open       { background: var(--color-warning-lt); color: var(--color-warning); }
+.status-scheduled  { background: var(--brand-blue-lt);    color: var(--brand-blue); }
+.status-completed  { background: var(--color-success-lt); color: var(--color-success); }
+
+.days-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.days-ok      { background: #f0fdf4; color: #16a34a; }
+.days-warn    { background: #fffbeb; color: #d97706; }
+.days-urgent  { background: #fef2f2; color: #dc2626; }
+
+/* --- All-clear banner ------------------------------------------------------ */
+.all-clear {
+  background: var(--color-success-lt);
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.all-clear-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.all-clear-text {
+  font-size: 0.9rem;
+  color: #166534;
+}
+
+.all-clear-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+/* --- Empty state ----------------------------------------------------------- */
+.empty-state {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+/* --- Divider --------------------------------------------------------------- */
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 20px 0;
+}
+
+/* --- Footer ---------------------------------------------------------------- */
+.portal-footer {
+  text-align: center;
+  padding: 32px 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border);
+  margin-top: 40px;
+}
+
+/* --- Login page ------------------------------------------------------------ */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  padding: 24px;
+}
+
+.login-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-logo {
+  width: 48px;
+  height: 48px;
+  background: var(--brand-navy);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: white;
+}
+
+.login-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+
+.login-subtitle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 28px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus {
+  border-color: var(--brand-blue);
+}
+
+.btn-primary {
+  display: block;
+  width: 100%;
+  background: var(--brand-navy);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover    { background: #243a7a; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.login-success {
+  background: var(--color-success-lt);
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-size: 0.88rem;
+  color: #166534;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.login-error {
+  background: var(--color-danger-lt);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  color: var(--color-danger);
+  margin-top: 12px;
+}
+
+.login-powered {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: 24px;
+}
+
+/* --- Loading spinner ------------------------------------------------------- */
+.portal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 12px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--brand-blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Alert ----------------------------------------------------------------- */
+.alert {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  border: 1px solid;
+}
+
+.alert-danger {
+  background: var(--color-danger-lt);
+  border-color: #fecaca;
+  color: var(--color-danger);
+}
+
+.alert-info {
+  background: var(--brand-blue-lt);
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+/* --- Responsive ------------------------------------------------------------ */
+@media (max-width: 600px) {
+  .portal-hero-sub-grid   { gap: 24px; }
+  .portal-hero-number     { font-size: 2.5rem; }
+  .stat-grid              { grid-template-columns: repeat(2, 1fr); }
+  .property-stats-row     { grid-template-columns: repeat(2, 1fr); }
+  .portal-wrapper         { padding: 0 12px 40px; }
+  .wo-table .col-vendor   { display: none; }
+  .portal-header          { padding: 0 16px; }
+}

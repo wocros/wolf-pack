@@ -1,0 +1,19 @@
+{
+  "name": "beyond-pm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start":          "npx serve src/command-center -l 3000",
+    "test:db":        "node src/db/test-connection.js",
+    "sync:portfolio": "node src/portfolio/sync-units.js",
+    "sync:owners":    "node src/portfolio/sync-owners.js",
+    "sync:turnovers":     "node src/turnover-board/sync-turnovers.js",
+    "import:rent-roll":  "node src/portfolio/import-rent-roll.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
+    "dotenv": "^16.4.7",
+    "node-fetch": "^3.3.2"
+  }
+}

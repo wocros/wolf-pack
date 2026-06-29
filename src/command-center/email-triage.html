@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Triage — BPM Command Center</title>
+
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+  <style>
+    /* =========================================================
+       DESIGN TOKENS
+    ========================================================= */
+    :root {
+      --color-primary:       #1e3a5f;
+      --color-primary-light: #2a4f7c;
+      --color-accent:        #3498db;
+      --color-accent-hover:  #2980b9;
+      --color-success:       #2ecc71;
+      --color-warning:       #f39c12;
+      --color-danger:        #e74c3c;
+      --color-bg:            #f3f4f6;
+      --color-surface:       #ffffff;
+      --color-border:        #e1e4e8;
+      --color-text:          #2c3e50;
+      --color-text-muted:    #6c757d;
+      --sidebar-width:       220px;
+      --header-height:       60px;
+    }
+
+    /* =========================================================
+       RESET & BASE
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   Helvetica, Arial, sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100vh;
+    }
+
+    /* =========================================================
+       LAYOUT SHELL — header + sidebar placeholders
+       (auth.js will inject real header/sidebar via renderHeader / renderSidebar)
+    ========================================================= */
+    #app-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--header-height);
+      background: var(--color-primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      z-index: 100;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    #app-sidebar {
+      position: fixed;
+      top: var(--header-height);
+      left: 0;
+      bottom: 0;
+      width: var(--sidebar-width);
+      background: var(--color-primary-light);
+      overflow-y: auto;
+      z-index: 90;
+    }
+
+    #main-content {
+      margin-top: var(--header-height);
+      margin-left: var(--sidebar-width);
+      padding: 24px 20px;
+      min-height: calc(100vh - var(--header-height));
+    }
+
+    /* =========================================================
+       FILTER BAR
+    ========================================================= */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-right: 16px;
+    }
+
+    .filter-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .filter-btn:hover {
+      background: var(--color-bg);
+      border-color: var(--color-accent);
+    }
+
+    .filter-btn.active {
+      background: var(--color-accent);
+      border-color: var(--color-accent);
+      color: #fff;
+    }
+
+    .badge-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 10px;
+      background: var(--color-danger);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .filter-btn.active .badge-count {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* =========================================================
+       LOADING + EMPTY STATES
+    ========================================================= */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 60px 20px;
+      color: var(--color-text-muted);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--color-text-muted);
+    }
+
+    .empty-state p { font-size: 1rem; }
+    .empty-state small { font-size: 0.8rem; margin-top: 6px; display: block; }
+
+    .error-state {
+      background: #fff0f0;
+      border: 1px solid var(--color-danger);
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: var(--color-danger);
+      font-size: 0.9rem;
+    }
+
+    /* =========================================================
+       EMAIL LIST
+    ========================================================= */
+    .email-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--color-surface);
+    }
+
+    .email-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: background 0.12s;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .email-row:last-child { border-bottom: none; }
+
+    .email-row:hover { background: #f0f6ff; }
+
+    /* Unread (status=new) styling */
+    .email-row.is-new {
+      border-left: 3px solid var(--color-accent);
+      padding-left: 13px; /* compensate for border width */
+    }
+
+    .email-row-left { min-width: 0; }
+
+    .email-sender {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 3px;
+      flex-wrap: wrap;
+    }
+
+    .sender-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--color-text);
+      white-space: nowrap;
+    }
+
+    .email-row.is-new .sender-name { font-weight: 700; }
+
+    .sender-email {
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+
+    .email-subject {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text);
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .email-preview {
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .email-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+    }
+
+    /* Generic badge */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .badge-new      { background: #dbeafe; color: #1e40af; }
+    .badge-assigned { background: #fef3c7; color: #92400e; }
+    .badge-handled  { background: #d1fae5; color: #065f46; }
+
+    .email-row-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      min-width: 110px;
+      padding-top: 2px;
+    }
+
+    .email-time {
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+
+    .assigned-to-label {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 110px;
+    }
+
+    /* =========================================================
+       RESPONSIVE — collapse sidebar at narrow widths
+    ========================================================= */
+    @media (max-width: 640px) {
+      #app-sidebar { display: none; }
+      #main-content { margin-left: 0; padding: 16px 12px; }
+
+      .email-row-right { min-width: 80px; }
+      .sender-email { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header and sidebar are injected by auth.js -->
+  <div id="app-header">BPM Command Center</div>
+  <nav id="app-sidebar"></nav>
+
+  <main id="main-content">
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <h1>Email Inbox</h1>
+      <button class="filter-btn active" data-filter="new" id="btn-new">
+        New
+        <span class="badge-count" id="new-count" style="display:none;">0</span>
+      </button>
+      <button class="filter-btn" data-filter="mine" id="btn-mine">Assigned to Me</button>
+      <button class="filter-btn" data-filter="all"  id="btn-all">All</button>
+    </div>
+
+    <!-- Dynamic area -->
+    <div id="list-area">
+      <div class="loading-state" id="loading-state">
+        <div class="spinner"></div>
+        <p>Loading emails...</p>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    /* =========================================================
+       SUPABASE CONFIG
+       Replace the placeholder strings below with your
+       Supabase project URL and anon key.
+       (Settings → API at app.supabase.com)
+    ========================================================= */
+    const SUPABASE_URL      = 'https://kyekqaxuzpozuhyhibcn.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZWtxYXh1enBvenVoeWhpYmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDE1MjksImV4cCI6MjA5ODA3NzUyOX0.UQp6Inqrvjfxax7AjRRujw6PXId9Whmknv5vkX8DcC8'
+
+    /* =========================================================
+       BOOTSTRAP CHECK
+    ========================================================= */
+    const isConfigured =
+      SUPABASE_URL      !== 'SUPABASE_URL_HERE' &&
+      SUPABASE_ANON_KEY !== 'SUPABASE_ANON_KEY_HERE' &&
+      SUPABASE_URL.startsWith('https://')
+
+    if (!isConfigured) {
+      document.getElementById('list-area').innerHTML = `
+        <div class="error-state">
+          <strong>Setup needed.</strong> Open this file and replace
+          <code>SUPABASE_URL_HERE</code> and <code>SUPABASE_ANON_KEY_HERE</code>
+          near the top of the script block with your Supabase credentials.
+        </div>`
+      throw new Error('Supabase not configured')
+    }
+
+    /* =========================================================
+       SUPABASE CLIENT
+    ========================================================= */
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    /* =========================================================
+       AUTH — import helpers from the shared auth module
+       auth.js lives next to this file in src/command-center/
+    ========================================================= */
+    import { requireAuth, renderHeader, renderSidebar } from './auth.js'
+
+    const { user, profile } = await requireAuth()
+    renderHeader(profile)
+    renderSidebar('email-triage', profile.role)
+
+    /* =========================================================
+       STATE
+    ========================================================= */
+    let categories = {}     // id → { name, color }
+    let currentFilter = 'new'
+
+    /* =========================================================
+       LOAD CATEGORIES (once, at startup)
+    ========================================================= */
+    async function loadCategories() {
+      const { data, error } = await db.from('email_categories').select('id, name, color')
+      if (error) { console.warn('Could not load categories:', error.message); return }
+      for (const cat of data) categories[cat.id] = cat
+    }
+
+    /* =========================================================
+       LOAD EMAILS
+    ========================================================= */
+    async function loadEmails(filter) {
+      currentFilter = filter
+      showLoading()
+
+      let query = db
+        .from('email_cache')
+        .select('*, email_categories(name, color), profiles!assigned_to(display_name)')
+        .order('received_at', { ascending: false })
+
+      if (filter === 'new')  query = query.eq('status', 'new')
+      if (filter === 'mine') query = query.eq('assigned_to', user.id)
+      // 'all' — no extra filter; RLS limits what staff can see
+
+      const { data, error } = await query
+
+      if (error) {
+        showError('Could not load emails: ' + error.message)
+        return
+      }
+
+      renderList(data || [])
+    }
+
+    /* =========================================================
+       NEW-EMAIL COUNT (badge on the "New" button)
+    ========================================================= */
+    async function refreshNewCount() {
+      const { count, error } = await db
+        .from('email_cache')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'new')
+
+      if (error) return
+      const el = document.getElementById('new-count')
+      if (count > 0) {
+        el.textContent = count > 99 ? '99+' : count
+        el.style.display = 'inline-flex'
+      } else {
+        el.style.display = 'none'
+      }
+    }
+
+    /* =========================================================
+       RENDER
+    ========================================================= */
+    function showLoading() {
+      document.getElementById('list-area').innerHTML = `
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading emails...</p>
+        </div>`
+    }
+
+    function showError(msg) {
+      document.getElementById('list-area').innerHTML =
+        `<div class="error-state">${escapeHtml(msg)}</div>`
+    }
+
+    function renderList(emails) {
+      if (emails.length === 0) {
+        let hint = ''
+        if (currentFilter === 'new')  hint = 'No new emails right now.'
+        if (currentFilter === 'mine') hint = 'No emails assigned to you.'
+        if (currentFilter === 'all')  hint = 'No emails found.'
+        document.getElementById('list-area').innerHTML = `
+          <div class="empty-state">
+            <p>${hint}</p>
+            <small>Run the email sync script to pull in new mail from Microsoft 365.</small>
+          </div>`
+        return
+      }
+
+      const rows = emails.map(email => buildRow(email)).join('')
+      document.getElementById('list-area').innerHTML =
+        `<div class="email-list">${rows}</div>`
+    }
+
+    function buildRow(email) {
+      const isNew    = email.status === 'new'
+      const rowClass = isNew ? 'email-row is-new' : 'email-row'
+
+      // Status badge
+      const statusBadge = {
+        new:      '<span class="badge badge-new">New</span>',
+        assigned: '<span class="badge badge-assigned">Assigned</span>',
+        handled:  '<span class="badge badge-handled">Handled</span>',
+      }[email.status] || ''
+
+      // Category badge (color from the database)
+      let catBadge = ''
+      if (email.email_categories) {
+        const cat = email.email_categories
+        catBadge = `<span class="badge"
+          style="background:${escapeAttr(cat.color)}20; color:${escapeAttr(cat.color)}; border:1px solid ${escapeAttr(cat.color)}40;">
+          ${escapeHtml(cat.name)}
+        </span>`
+      }
+
+      // Assigned-to name
+      const assignedName = email.profiles ? email.profiles.display_name : null
+      const assignedEl   = assignedName
+        ? `<span class="assigned-to-label" title="Assigned to ${escapeAttr(assignedName)}">
+             → ${escapeHtml(assignedName)}
+           </span>`
+        : ''
+
+      return `
+        <a class="${rowClass}" href="email-detail.html?id=${escapeAttr(email.id)}">
+          <div class="email-row-left">
+            <div class="email-sender">
+              <span class="sender-name">${escapeHtml(email.from_name || 'Unknown')}</span>
+              <span class="sender-email">${escapeHtml(email.from_address || '')}</span>
+            </div>
+            <div class="email-subject">${escapeHtml(email.subject || '(no subject)')}</div>
+            <div class="email-preview">${escapeHtml(email.body_preview || '')}</div>
+            <div class="email-badges">
+              ${statusBadge}
+              ${catBadge}
+            </div>
+          </div>
+          <div class="email-row-right">
+            <span class="email-time">${formatDateTime(email.received_at)}</span>
+            ${assignedEl}
+          </div>
+        </a>`
+    }
+
+    /* =========================================================
+       FILTER BUTTONS
+    ========================================================= */
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+        loadEmails(btn.dataset.filter)
+      })
+    })
+
+    /* =========================================================
+       HELPERS
+    ========================================================= */
+    function formatDateTime(isoString) {
+      if (!isoString) return ''
+      const d = new Date(isoString)
+      const now = new Date()
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+      const hh   = d.getHours()
+      const mm   = String(d.getMinutes()).padStart(2, '0')
+      const ampm = hh >= 12 ? 'PM' : 'AM'
+      const h12  = hh % 12 || 12
+      const time = `${h12}:${mm} ${ampm}`
+
+      if (d >= todayStart) return `Today at ${time}`
+
+      const yesterday = new Date(todayStart)
+      yesterday.setDate(yesterday.getDate() - 1)
+      if (d >= yesterday) return `Yesterday at ${time}`
+
+      return `${monthNames[d.getMonth()]} ${d.getDate()} at ${time}`
+    }
+
+    function escapeHtml(str) {
+      if (!str) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;')
+    }
+
+    function escapeAttr(str) {
+      if (!str) return ''
+      return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#x27;')
+    }
+
+    /* =========================================================
+       INIT
+    ========================================================= */
+    await loadCategories()
+    await refreshNewCount()
+    await loadEmails('new')
+  </script>
+
+</body>
+</html>

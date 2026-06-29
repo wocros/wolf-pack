@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — BPM Command Center</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Supabase CDN — must load before auth.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+  <!-- Fixed header — filled by renderHeader() -->
+  <header class="app-header" id="app-header"></header>
+
+  <!-- Fixed sidebar — filled by renderSidebar() -->
+  <nav class="app-sidebar" id="app-sidebar"></nav>
+
+  <!-- Main content -->
+  <main class="app-main">
+    <div class="app-content">
+
+      <!-- Loading state -->
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <span>Loading dashboard...</span>
+      </div>
+
+      <!-- Dashboard content — hidden until data loads -->
+      <div id="dashboardContent" style="display:none;">
+
+        <div class="page-header">
+          <div class="page-title">Dashboard</div>
+          <div class="page-subtitle">Overview of email triage activity</div>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="summary-grid">
+
+          <div class="card">
+            <div class="card-title">New Emails</div>
+            <div class="card-value" id="statNew">—</div>
+            <div class="card-subtitle">Waiting to be triaged</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Assigned to Me</div>
+            <div class="card-value" id="statAssigned">—</div>
+            <div class="card-subtitle">Emails in your queue</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Handled Today</div>
+            <div class="card-value" id="statHandled">—</div>
+            <div class="card-subtitle">Closed out since midnight</div>
+          </div>
+
+        </div>
+
+        <!-- Recent activity feed -->
+        <div class="card">
+          <div class="section-heading">Recent Activity</div>
+          <div class="activity-feed" id="activityFeed">
+            <div class="text-muted" style="padding: 16px 0; font-size: 0.875rem;">No recent activity.</div>
+          </div>
+        </div>
+
+      </div>
+      <!-- /dashboardContent -->
+
+    </div>
+  </main>
+
+  <script type="module">
+    import { supabase, requireAuth, renderHeader, renderSidebar } from './auth.js'
+
+    // =========================================================================
+    // BOOT
+    // =========================================================================
+    const auth = await requireAuth()
+    if (!auth) throw new Error('Not authenticated')
+
+    const { user, profile } = auth
+
+    renderHeader(profile)
+    renderSidebar('dashboard', profile.role)
+
+    await loadDashboard(user.id)
+
+    // =========================================================================
+    // LOAD DASHBOARD DATA
+    // =========================================================================
+    async function loadDashboard(userId) {
+      try {
+        // Count emails with status = 'new'
+        const { count: newCount, error: newErr } = await supabase
+          .from('email_cache')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'new')
+
+        if (newErr) throw newErr
+
+        // Count emails assigned to current user
+        const { count: assignedCount, error: assignedErr } = await supabase
+          .from('email_cache')
+          .select('*', { count: 'exact', head: true })
+          .eq('assigned_to', userId)
+          .neq('status', 'handled')
+
+        if (assignedErr) throw assignedErr
+
+        // Count emails marked handled today (since midnight local time)
+        const todayStart = new Date()
+        todayStart.setHours(0, 0, 0, 0)
+
+        const { count: handledCount, error: handledErr } = await supabase
+          .from('email_cache')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'handled')
+          .gte('updated_at', todayStart.toISOString())
+
+        if (handledErr) throw handledErr
+
+        // Update stat cards
+        document.getElementById('statNew').textContent      = newCount ?? 0
+        document.getElementById('statAssigned').textContent = assignedCount ?? 0
+        document.getElementById('statHandled').textContent  = handledCount ?? 0
+
+        // Load recent activity — last 5 email_actions
+        const { data: actions, error: actErr } = await supabase
+          .from('email_actions')
+          .select('id, action_type, performed_at, performed_by, email_cache ( subject )')
+          .order('performed_at', { ascending: false })
+          .limit(5)
+
+        if (actErr) throw actErr
+
+        // Fetch display names for the users who performed those actions
+        const userIds = [...new Set((actions || []).map(a => a.performed_by).filter(Boolean))]
+        let profileMap = {}
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, display_name')
+            .in('id', userIds)
+          ;(profiles || []).forEach(p => { profileMap[p.id] = p.display_name })
+        }
+
+        renderActivityFeed(actions || [], profileMap)
+
+        // Show dashboard
+        document.getElementById('loadingState').style.display   = 'none'
+        document.getElementById('dashboardContent').style.display = ''
+
+      } catch (err) {
+        document.getElementById('loadingState').innerHTML = `
+          <div class="alert alert-danger" style="max-width: 480px;">
+            Could not load dashboard data: ${escHtml(err.message || String(err))}
+          </div>
+        `
+      }
+    }
+
+    // =========================================================================
+    // RENDER ACTIVITY FEED
+    // =========================================================================
+    function renderActivityFeed(actions, profileMap = {}) {
+      const feed = document.getElementById('activityFeed')
+
+      if (actions.length === 0) {
+        feed.innerHTML = '<div class="text-muted" style="padding: 16px 0; font-size: 0.875rem;">No recent activity.</div>'
+        return
+      }
+
+      feed.innerHTML = actions.map(action => {
+        const who     = profileMap[action.performed_by] || 'Someone'
+        const subject = action.email_cache?.subject     || '(no subject)'
+        const what    = actionLabel(action.action_type)
+        const when    = formatRelative(action.performed_at)
+
+        return `
+          <div class="activity-item">
+            <div>
+              <span class="activity-who">${escHtml(who)}</span>
+              <span class="activity-what"> ${what} &ldquo;${escHtml(subject)}&rdquo;</span>
+            </div>
+            <div class="activity-when">${when}</div>
+          </div>
+        `
+      }).join('')
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+    function actionLabel(type) {
+      const labels = {
+        assigned:       'assigned',
+        categorized:    'categorized',
+        replied:        'replied to',
+        marked_handled: 'marked as handled',
+        marked_new:     'reopened'
+      }
+      return labels[type] || type
+    }
+
+    function formatRelative(isoString) {
+      if (!isoString) return ''
+      const diff  = Date.now() - new Date(isoString).getTime()
+      const mins  = Math.floor(diff / 60000)
+      const hours = Math.floor(diff / 3600000)
+      const days  = Math.floor(diff / 86400000)
+
+      if (mins < 1)  return 'just now'
+      if (mins < 60) return `${mins}m ago`
+      if (hours < 24) return `${hours}h ago`
+      return `${days}d ago`
+    }
+
+    function escHtml(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+    }
+  </script>
+
+</body>
+</html>

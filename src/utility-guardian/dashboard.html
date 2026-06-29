@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Utility Bill Guardian — Beyond Property Management</title>
+
+  <!-- Supabase client loaded from CDN — no install needed -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+  <style>
+    /* =========================================================
+       RESET & BASE
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   Helvetica, Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+      min-height: 100vh;
+    }
+
+    /* =========================================================
+       HEADER
+    ========================================================= */
+    .header {
+      background: #1e3a5f;
+      color: #ffffff;
+      padding: 20px 24px;
+    }
+
+    .header-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .header-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .header .subtitle {
+      font-size: 0.875rem;
+      color: #93c5fd;
+      margin-top: 3px;
+    }
+
+    .header-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .last-checked {
+      font-size: 0.8rem;
+      color: #93c5fd;
+      white-space: nowrap;
+    }
+
+    .btn-run {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 18px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .btn-run:hover { background: #1d4ed8; }
+    .btn-run:disabled { background: #4b5563; cursor: not-allowed; }
+
+    /* =========================================================
+       MAIN LAYOUT
+    ========================================================= */
+    .main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* =========================================================
+       SUMMARY BAR
+    ========================================================= */
+    .summary-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .stat-box {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 18px 16px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .stat-box .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-box .stat-label {
+      font-size: 0.78rem;
+      color: #6b7280;
+      margin-top: 6px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-box.stat-total  .stat-number { color: #1e3a5f; }
+    .stat-box.stat-clear  .stat-number { color: #16a34a; }
+    .stat-box.stat-alert  .stat-number { color: #dc2626; }
+
+    /* =========================================================
+       ALL-CLEAR BANNER
+    ========================================================= */
+    .all-clear-banner {
+      background: #f0fdf4;
+      border: 2px solid #16a34a;
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+      display: none; /* shown by JS when no issues */
+    }
+
+    .all-clear-banner .banner-icon {
+      font-size: 2.5rem;
+      margin-bottom: 8px;
+    }
+
+    .all-clear-banner .banner-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #15803d;
+    }
+
+    .all-clear-banner .banner-sub {
+      font-size: 0.875rem;
+      color: #166534;
+      margin-top: 6px;
+    }
+
+    /* =========================================================
+       SECTIONS
+    ========================================================= */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .badge-red    { background: #dc2626; }
+    .badge-amber  { background: #d97706; }
+    .badge-green  { background: #16a34a; }
+
+    /* =========================================================
+       CARDS
+    ========================================================= */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+      border-left: 4px solid transparent;
+    }
+
+    .card.card-red    { border-left-color: #dc2626; }
+    .card.card-amber  { border-left-color: #d97706; }
+    .card.card-green  {
+      border-left-color: #16a34a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .card-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .card-address {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .card-owner {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .card-vendor {
+      font-size: 0.78rem;
+      color: #4b5563;
+      background: #f3f4f6;
+      border-radius: 4px;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+
+    .card-problem {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .card-problem.problem-missing { color: #b91c1c; }
+    .card-problem.problem-overdue { color: #c2410c; }
+    .card-problem.problem-latefee { color: #b45309; }
+
+    .card-detail {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    /* "Review & Send" expand button */
+    .btn-expand {
+      margin-top: 12px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-expand:hover { background: #fee2e2; }
+
+    .btn-expand.amber-expand {
+      background: #fffbeb;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+
+    .btn-expand.amber-expand:hover { background: #fef3c7; }
+
+    /* Expanded email draft panel */
+    .email-draft {
+      display: none; /* toggled by JS */
+      margin-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 12px;
+    }
+
+    .email-draft.open { display: block; }
+
+    .email-draft-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .email-subject {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1e3a5f;
+      margin-bottom: 10px;
+      padding: 6px 10px;
+      background: #f0f9ff;
+      border-radius: 4px;
+    }
+
+    .email-body {
+      font-size: 0.82rem;
+      color: #374151;
+      white-space: pre-wrap;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      line-height: 1.5;
+      font-family: inherit;
+    }
+
+    .email-draft-hint {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    /* Outreach sent card details */
+    .outreach-meta {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .outreach-status-badge {
+      display: inline-block;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .status-waiting {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-responded {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    /* Green card (all clear) compact layout */
+    .card-green-info {
+      flex: 1;
+    }
+
+    .card-green-check {
+      font-size: 1.4rem;
+      color: #16a34a;
+    }
+
+    /* =========================================================
+       LOADING & ERROR STATES
+    ========================================================= */
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6b7280;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 36px;
+      height: 36px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 0.9rem;
+    }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 10px;
+      padding: 20px 24px;
+      display: none;
+    }
+
+    .error-box.visible { display: block; }
+
+    .error-box h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #991b1b;
+      margin-bottom: 8px;
+    }
+
+    .error-box p {
+      font-size: 0.875rem;
+      color: #7f1d1d;
+      line-height: 1.5;
+    }
+
+    .error-box code {
+      background: #fee2e2;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.82rem;
+    }
+
+    /* =========================================================
+       SETUP WARNING (when placeholders not replaced)
+    ========================================================= */
+    .setup-box {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      padding: 20px 24px;
+      display: none;
+    }
+
+    .setup-box.visible { display: block; }
+
+    .setup-box h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #92400e;
+      margin-bottom: 8px;
+    }
+
+    .setup-box p, .setup-box li {
+      font-size: 0.875rem;
+      color: #78350f;
+      line-height: 1.6;
+    }
+
+    .setup-box ol { padding-left: 18px; margin-top: 8px; }
+    .setup-box code {
+      background: #fef3c7;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.82rem;
+    }
+
+    /* =========================================================
+       FOOTER
+    ========================================================= */
+    .footer {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 16px 40px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 20px;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* =========================================================
+       RESPONSIVE — phone-size screens
+    ========================================================= */
+    @media (max-width: 480px) {
+      .header h1 { font-size: 1.2rem; }
+
+      .summary-bar {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .stat-box {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        text-align: left;
+        padding: 14px 16px;
+      }
+
+      .stat-box .stat-number { font-size: 1.6rem; }
+
+      .card { padding: 14px; }
+
+      .footer-inner { flex-direction: column; }
+    }
+
+    @media (min-width: 481px) and (max-width: 640px) {
+      .summary-bar { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======================================================
+       HEADER
+  ====================================================== -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-top">
+        <div>
+          <h1>Utility Bill Guardian</h1>
+          <p class="subtitle">Beyond Property Management</p>
+        </div>
+        <div class="header-meta">
+          <span class="last-checked" id="lastChecked">Last checked: loading...</span>
+          <button class="btn-run" id="btnRun" onclick="loadDashboard()">Refresh Now</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================
+       MAIN CONTENT
+  ====================================================== -->
+  <main class="main" id="mainContent">
+
+    <!-- Setup warning — shown if Supabase credentials are placeholders -->
+    <div class="setup-box" id="setupBox">
+      <h3>One-time setup required</h3>
+      <p>This dashboard is not yet connected to your database. Here is how to connect it:</p>
+      <ol>
+        <li>Open this file in a text editor (right-click &rarr; Open With &rarr; Notepad)</li>
+        <li>Find the line near the top that says <code>const SUPABASE_URL = 'SUPABASE_URL_HERE'</code></li>
+        <li>Replace <code>SUPABASE_URL_HERE</code> with your Supabase project URL</li>
+        <li>Replace <code>SUPABASE_ANON_KEY_HERE</code> on the next line with your Supabase anon key</li>
+        <li>Save the file and reload this page</li>
+      </ol>
+      <p style="margin-top:10px;">Your Supabase URL and key are in your project settings at <code>app.supabase.com</code> under Settings &rarr; API.</p>
+    </div>
+
+    <!-- Error box — shown if the data load fails -->
+    <div class="error-box" id="errorBox">
+      <h3>Could not load data</h3>
+      <p id="errorMessage">An unexpected error occurred. Check your internet connection and try again.</p>
+    </div>
+
+    <!-- Loading spinner -->
+    <div class="loading-state" id="loadingState">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading utility bill data...</p>
+    </div>
+
+    <!-- Dashboard — hidden until data loads -->
+    <div id="dashboard" style="display:none; flex-direction:column; gap:28px;">
+
+      <!-- Summary bar -->
+      <div class="summary-bar" id="summaryBar">
+        <div class="stat-box stat-total">
+          <div class="stat-number" id="statTotal">—</div>
+          <div class="stat-label">Total Accounts</div>
+        </div>
+        <div class="stat-box stat-clear">
+          <div class="stat-number" id="statClear">—</div>
+          <div class="stat-label">All Clear</div>
+        </div>
+        <div class="stat-box stat-alert">
+          <div class="stat-number" id="statAlert">—</div>
+          <div class="stat-label">Needs Attention</div>
+        </div>
+      </div>
+
+      <!-- All-clear banner (shown when zero issues) -->
+      <div class="all-clear-banner" id="allClearBanner">
+        <div class="banner-icon">&#10003;</div>
+        <div class="banner-title">All utility bills are on track. No action needed.</div>
+        <div class="banner-sub">Every active account has current bills and no overdue balances.</div>
+      </div>
+
+      <!-- Section 1: Needs Attention -->
+      <div id="sectionAttention" style="display:none;">
+        <div class="section-title">
+          Needs Attention
+          <span class="badge badge-red" id="badgeAttention">0</span>
+        </div>
+        <div class="card-list" id="listAttention"></div>
+      </div>
+
+      <!-- Section 2: Outreach Sent -->
+      <div id="sectionOutreach" style="display:none;">
+        <div class="section-title">
+          Outreach Sent — Waiting on Vendor
+          <span class="badge badge-amber" id="badgeOutreach">0</span>
+        </div>
+        <div class="card-list" id="listOutreach"></div>
+      </div>
+
+      <!-- Section 3: All Clear -->
+      <div id="sectionClear" style="display:none;">
+        <div class="section-title">
+          All Clear
+          <span class="badge badge-green" id="badgeClear">0</span>
+        </div>
+        <div class="card-list" id="listClear"></div>
+      </div>
+
+    </div>
+    <!-- /dashboard -->
+
+  </main>
+
+  <!-- ======================================================
+       FOOTER
+  ====================================================== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>To run a fresh check: <code>node src/utility-guardian/run-checks.js</code></span>
+      <span>Questions: <a href="mailto:danyel@bpmsd.com" style="color:#6b7280;">danyel@bpmsd.com</a></span>
+    </div>
+  </footer>
+
+  <!-- ======================================================
+       JAVASCRIPT
+  ====================================================== -->
+  <script>
+    // ==========================================================
+    // CONFIGURATION
+    // Replace these two placeholders before opening this file.
+    // ==========================================================
+    const SUPABASE_URL      = 'SUPABASE_URL_HERE'
+    const SUPABASE_ANON_KEY = 'SUPABASE_ANON_KEY_HERE'
+
+    // ==========================================================
+    // SETUP CHECK
+    // ==========================================================
+    function isConfigured() {
+      return (
+        SUPABASE_URL      !== 'SUPABASE_URL_HERE' &&
+        SUPABASE_ANON_KEY !== 'SUPABASE_ANON_KEY_HERE' &&
+        SUPABASE_URL.startsWith('https://')
+      )
+    }
+
+    // ==========================================================
+    // SUPABASE CLIENT
+    // ==========================================================
+    let db = null
+
+    // READ-ONLY client — this key may only SELECT data.
+    // Any writes (ingest, outreach) must go through server-side scripts
+    // (run-checks.js, ingest-bill.js) using SUPABASE_SERVICE_ROLE_KEY.
+    function getClient() {
+      if (!db) {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      }
+      return db
+    }
+
+    // ==========================================================
+    // DATE HELPERS
+    // ==========================================================
+
+    // Turn "2026-04" into "April 2026"
+    function formatPeriod(yyyyMM) {
+      if (!yyyyMM) return 'Unknown period'
+      const [year, month] = yyyyMM.split('-')
+      const date = new Date(Number(year), Number(month) - 1, 1)
+      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    }
+
+    // Turn "2026-05-15" into "May 15, 2026"
+    function formatDate(isoDate) {
+      if (!isoDate) return 'Unknown date'
+      // Parse as local date to avoid timezone-shift issues
+      const [year, month, day] = isoDate.split('-').map(Number)
+      const date = new Date(year, month - 1, day)
+      return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    }
+
+    // Format a dollar amount: 25 -> "$25.00"
+    function formatDollars(amount) {
+      if (amount == null) return ''
+      return '$' + Number(amount).toFixed(2)
+    }
+
+    // ==========================================================
+    // MAIN LOAD FUNCTION
+    // ==========================================================
+    async function loadDashboard() {
+      // Reset UI state
+      show('loadingState')
+      hide('dashboard')
+      hide('errorBox')
+      hide('setupBox')
+      hide('allClearBanner')
+      hide('sectionAttention')
+      hide('sectionOutreach')
+      hide('sectionClear')
+
+      document.getElementById('btnRun').disabled = true
+      document.getElementById('lastChecked').textContent = 'Last checked: loading...'
+
+      // Check that credentials have been filled in
+      if (!isConfigured()) {
+        hide('loadingState')
+        show('setupBox')
+        document.getElementById('lastChecked').textContent = 'Last checked: not connected'
+        document.getElementById('btnRun').disabled = false
+        return
+      }
+
+      try {
+        const client = getClient()
+
+        // ---- 1. All active accounts (with vendor name joined) ----
+        const { data: accounts, error: accErr } = await client
+          .from('utility_accounts')
+          .select(`
+            id,
+            property_address,
+            account_number,
+            owner_name,
+            billing_cycle,
+            vendor_id,
+            utility_vendors ( name, utility_type )
+          `)
+          .eq('active', true)
+
+        if (accErr) throw accErr
+
+        const totalAccounts = accounts.length
+        const accountMap = {}
+        accounts.forEach(a => { accountMap[a.id] = a })
+
+        // ---- 2. Problem bills: overdue or has a late fee ----
+        const { data: problemBills, error: billErr } = await client
+          .from('utility_bills')
+          .select(`
+            id,
+            account_id,
+            due_date,
+            amount_due,
+            status,
+            has_late_fee,
+            late_fee_amount
+          `)
+          .or('status.eq.overdue,has_late_fee.eq.true')
+
+        if (billErr) throw billErr
+
+        // ---- 3. Outreach records (all statuses we care about) ----
+        const { data: outreachRecords, error: outErr } = await client
+          .from('utility_outreach')
+          .select(`
+            id,
+            account_id,
+            missing_period,
+            draft_email_subject,
+            draft_email_body,
+            status,
+            sent_at,
+            sent_by,
+            response_received
+          `)
+          .in('status', ['draft', 'approved', 'sent', 'responded'])
+          .order('created_at', { ascending: false })
+
+        if (outErr) throw outErr
+
+        // ---- 4. Build data structures ----
+
+        // Track which accounts have issues
+        const accountsWithIssues = new Set()
+
+        // Attention items: { accountId, type, label, detail, outreachRecord }
+        const attentionItems = []
+
+        // Outreach items: sent or responded
+        const outreachSentItems = []
+
+        // Outreach: draft or approved — these are "Needs Attention" (missing bills)
+        const outreachDraftMap = {} // accountId+period -> outreach record
+
+        outreachRecords.forEach(rec => {
+          if (rec.status === 'sent' || rec.status === 'responded') {
+            outreachSentItems.push(rec)
+            accountsWithIssues.add(rec.account_id)
+          } else {
+            // draft or approved — becomes a "Needs Attention" missing bill card
+            const key = rec.account_id + '|' + rec.missing_period
+            outreachDraftMap[key] = rec
+            accountsWithIssues.add(rec.account_id)
+          }
+        })
+
+        // Missing bill items from draft outreach
+        Object.values(outreachDraftMap).forEach(rec => {
+          attentionItems.push({
+            accountId:       rec.account_id,
+            type:            'missing',
+            label:           'Missing bill: ' + formatPeriod(rec.missing_period),
+            detail:          null,
+            outreachRecord:  rec
+          })
+        })
+
+        // Overdue / late fee items from bills
+        problemBills.forEach(bill => {
+          accountsWithIssues.add(bill.account_id)
+
+          if (bill.status === 'overdue') {
+            attentionItems.push({
+              accountId:      bill.account_id,
+              type:           'overdue',
+              label:          'Overdue since ' + formatDate(bill.due_date),
+              detail:         bill.amount_due ? ('Amount due: ' + formatDollars(bill.amount_due)) : null,
+              outreachRecord: null
+            })
+          }
+
+          if (bill.has_late_fee) {
+            attentionItems.push({
+              accountId:      bill.account_id,
+              type:           'latefee',
+              label:          'Late fee: ' + (bill.late_fee_amount ? formatDollars(bill.late_fee_amount) : 'amount unknown'),
+              detail:         bill.amount_due ? ('Bill total: ' + formatDollars(bill.amount_due)) : null,
+              outreachRecord: null
+            })
+          }
+        })
+
+        // All-clear accounts
+        const clearAccounts = accounts.filter(a => !accountsWithIssues.has(a.id))
+        const needsAttentionCount = accountsWithIssues.size
+
+        // ---- 5. Update stats ----
+        document.getElementById('statTotal').textContent = totalAccounts
+        document.getElementById('statClear').textContent = clearAccounts.length
+        document.getElementById('statAlert').textContent = needsAttentionCount
+
+        // ---- 6. Render sections ----
+
+        // Needs Attention
+        if (attentionItems.length > 0) {
+          document.getElementById('badgeAttention').textContent = attentionItems.length
+          renderAttentionCards(attentionItems, accountMap)
+          show('sectionAttention')
+        }
+
+        // Outreach Sent
+        if (outreachSentItems.length > 0) {
+          document.getElementById('badgeOutreach').textContent = outreachSentItems.length
+          renderOutreachCards(outreachSentItems, accountMap)
+          show('sectionOutreach')
+        }
+
+        // All Clear
+        if (clearAccounts.length > 0) {
+          document.getElementById('badgeClear').textContent = clearAccounts.length
+          renderClearCards(clearAccounts)
+          show('sectionClear')
+        }
+
+        // All-clear banner if zero problems
+        if (attentionItems.length === 0 && outreachSentItems.length === 0) {
+          show('allClearBanner')
+        }
+
+        // Done
+        hide('loadingState')
+        show('dashboard')
+        document.getElementById('lastChecked').textContent =
+          'Last checked: ' + new Date().toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: 'numeric', minute: '2-digit', hour12: true
+          })
+
+      } catch (err) {
+        hide('loadingState')
+        show('errorBox')
+        document.getElementById('errorMessage').textContent =
+          'Could not load data from your database. Details: ' + (err.message || String(err))
+      }
+
+      document.getElementById('btnRun').disabled = false
+    }
+
+    // ==========================================================
+    // RENDER: NEEDS ATTENTION CARDS
+    // ==========================================================
+    function renderAttentionCards(items, accountMap) {
+      const list = document.getElementById('listAttention')
+      list.innerHTML = ''
+
+      items.forEach((item, index) => {
+        const account = accountMap[item.accountId]
+        if (!account) return
+
+        const vendor  = account.utility_vendors || {}
+        const address = account.property_address || 'Unknown address'
+        const owner   = account.owner_name       || ''
+        const acctNum = account.account_number   || ''
+        const vendorName = vendor.name           || 'Unknown vendor'
+        const utilType   = vendor.utility_type   || ''
+
+        const problemClass = {
+          missing: 'problem-missing',
+          overdue: 'problem-overdue',
+          latefee: 'problem-latefee'
+        }[item.type] || 'problem-missing'
+
+        const cardId    = 'card-' + index
+        const draftId   = 'draft-' + index
+        const btnId     = 'btn-' + index
+
+        let expandSection = ''
+        if (item.outreachRecord) {
+          const rec     = item.outreachRecord
+          const subject = rec.draft_email_subject || '(No subject drafted)'
+          const body    = rec.draft_email_body    || '(No email body drafted yet — run checks again to generate)'
+          const statusLabel = rec.status === 'approved' ? 'Approved — ready to send' : 'Draft — not yet sent'
+
+          expandSection = `
+            <button class="btn-expand" id="${btnId}" onclick="toggleDraft('${draftId}', '${btnId}')">
+              <span id="${btnId}-arrow">&#9654;</span> Review &amp; Send Email
+            </button>
+            <div class="email-draft" id="${draftId}">
+              <div class="email-draft-label">Draft email &mdash; ${statusLabel}</div>
+              <div class="email-subject"><strong>Subject:</strong> ${escHtml(subject)}</div>
+              <pre class="email-body">${escHtml(body)}</pre>
+              <p class="email-draft-hint">Copy this email and send it from your email account (danyel@bpmsd.com). Once sent, mark it in the database.</p>
+            </div>
+          `
+        }
+
+        const detailLine = item.detail
+          ? `<div class="card-detail">${escHtml(item.detail)}</div>`
+          : ''
+
+        list.insertAdjacentHTML('beforeend', `
+          <div class="card card-red" id="${cardId}">
+            <div class="card-header">
+              <div>
+                <div class="card-address">${escHtml(address)}</div>
+                ${owner ? `<div class="card-owner">Owner: ${escHtml(owner)}</div>` : ''}
+              </div>
+              <div class="card-vendor">${escHtml(vendorName)}${utilType ? ' &middot; ' + capitalise(utilType) : ''} &middot; Acct #${escHtml(acctNum)}</div>
+            </div>
+            <div class="card-problem ${problemClass}">${escHtml(item.label)}</div>
+            ${detailLine}
+            ${expandSection}
+          </div>
+        `)
+      })
+    }
+
+    // ==========================================================
+    // RENDER: OUTREACH SENT CARDS
+    // ==========================================================
+    function renderOutreachCards(items, accountMap) {
+      const list = document.getElementById('listOutreach')
+      list.innerHTML = ''
+
+      items.forEach((item, index) => {
+        const account = accountMap[item.account_id]
+        if (!account) return
+
+        const vendor    = account.utility_vendors || {}
+        const address   = account.property_address || 'Unknown address'
+        const owner     = account.owner_name       || ''
+        const acctNum   = account.account_number   || ''
+        const vendorName = vendor.name             || 'Unknown vendor'
+
+        const sentDate  = item.sent_at
+          ? new Date(item.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : 'Unknown date'
+
+        const statusLabel = item.response_received
+          ? '<span class="outreach-status-badge status-responded">Response received</span>'
+          : '<span class="outreach-status-badge status-waiting">Waiting for response</span>'
+
+        const period    = formatPeriod(item.missing_period)
+        const subject   = item.draft_email_subject || '(No subject)'
+        const body      = item.draft_email_body    || ''
+        const draftId   = 'sent-draft-' + index
+        const btnId     = 'sent-btn-' + index
+
+        list.insertAdjacentHTML('beforeend', `
+          <div class="card card-amber">
+            <div class="card-header">
+              <div>
+                <div class="card-address">${escHtml(address)}</div>
+                ${owner ? `<div class="card-owner">Owner: ${escHtml(owner)}</div>` : ''}
+              </div>
+              <div class="card-vendor">${escHtml(vendorName)} &middot; Acct #${escHtml(acctNum)}</div>
+            </div>
+            <div class="card-problem problem-missing">Missing bill: ${escHtml(period)}</div>
+            <div class="outreach-meta">Email sent ${sentDate}${item.sent_by ? ' by ' + escHtml(item.sent_by) : ''} &mdash; ${statusLabel}</div>
+            ${body ? `
+              <button class="btn-expand amber-expand" id="${btnId}" onclick="toggleDraft('${draftId}', '${btnId}')">
+                <span id="${btnId}-arrow">&#9654;</span> View Email Sent
+              </button>
+              <div class="email-draft" id="${draftId}">
+                <div class="email-draft-label">Email that was sent</div>
+                <div class="email-subject"><strong>Subject:</strong> ${escHtml(subject)}</div>
+                <pre class="email-body">${escHtml(body)}</pre>
+              </div>
+            ` : ''}
+          </div>
+        `)
+      })
+    }
+
+    // ==========================================================
+    // RENDER: ALL CLEAR CARDS
+    // ==========================================================
+    function renderClearCards(accounts) {
+      const list = document.getElementById('listClear')
+      list.innerHTML = ''
+
+      accounts.forEach(account => {
+        const vendor     = account.utility_vendors || {}
+        const address    = account.property_address || 'Unknown address'
+        const vendorName = vendor.name              || 'Unknown vendor'
+        const utilType   = vendor.utility_type      || ''
+        const acctNum    = account.account_number   || ''
+
+        list.insertAdjacentHTML('beforeend', `
+          <div class="card card-green">
+            <div class="card-green-info">
+              <div class="card-address">${escHtml(address)}</div>
+              <div class="card-vendor" style="margin-top:4px; display:inline-block;">
+                ${escHtml(vendorName)}${utilType ? ' &middot; ' + capitalise(utilType) : ''} &middot; Acct #${escHtml(acctNum)}
+              </div>
+            </div>
+            <div class="card-green-check">&#10003;</div>
+          </div>
+        `)
+      })
+    }
+
+    // ==========================================================
+    // TOGGLE EMAIL DRAFT PANEL
+    // ==========================================================
+    function toggleDraft(draftId, btnId) {
+      const draft = document.getElementById(draftId)
+      const arrow = document.getElementById(btnId + '-arrow')
+      if (!draft) return
+
+      if (draft.classList.contains('open')) {
+        draft.classList.remove('open')
+        if (arrow) arrow.innerHTML = '&#9654;'
+      } else {
+        draft.classList.add('open')
+        if (arrow) arrow.innerHTML = '&#9660;'
+      }
+    }
+
+    // ==========================================================
+    // UTILITY HELPERS
+    // ==========================================================
+    function show(id) {
+      const el = document.getElementById(id)
+      if (el) el.style.display = ''
+    }
+
+    function hide(id) {
+      const el = document.getElementById(id)
+      if (el) el.style.display = 'none'
+    }
+
+    function escHtml(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+    }
+
+    function capitalise(str) {
+      if (!str) return ''
+      return str.charAt(0).toUpperCase() + str.slice(1)
+    }
+
+    // ==========================================================
+    // BOOT — load on page open
+    // ==========================================================
+    document.addEventListener('DOMContentLoaded', loadDashboard)
+  </script>
+
+</body>
+</html>
