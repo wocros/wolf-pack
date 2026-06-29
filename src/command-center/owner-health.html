@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Health — BPM Command Center</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+  <nav class="app-sidebar" id="app-sidebar"></nav>
+
+  <main class="app-main">
+    <div class="app-content">
+
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <span>Calculating owner health scores...</span>
+      </div>
+
+      <div id="ownerHealthContent" style="display:none;">
+
+        <!-- Page header -->
+        <div class="page-header">
+          <div class="flex justify-between items-center flex-wrap gap-12">
+            <div>
+              <div class="page-title">Owner Health</div>
+              <div class="page-subtitle">
+                Retention risk at a glance &mdash;
+                <span id="lastRefreshed" class="text-muted">loading&hellip;</span>
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnRefresh">&#8635; Refresh</button>
+          </div>
+        </div>
+
+        <!-- Risk summary bar -->
+        <div class="risk-summary-bar" id="riskSummaryBar">
+          <div class="risk-pill risk-pill-red"    id="pillRed">
+            <span class="risk-pill-count" id="countRed">0</span>
+            <span class="risk-pill-label">At Risk</span>
+          </div>
+          <div class="risk-pill risk-pill-yellow" id="pillYellow">
+            <span class="risk-pill-count" id="countYellow">0</span>
+            <span class="risk-pill-label">Watch</span>
+          </div>
+          <div class="risk-pill risk-pill-green"  id="pillGreen">
+            <span class="risk-pill-count" id="countGreen">0</span>
+            <span class="risk-pill-label">Healthy</span>
+          </div>
+        </div>
+
+        <!-- No owners notice -->
+        <div class="alert alert-info" id="noOwnersNotice" style="display:none;">
+          <strong>Owner data not yet loaded.</strong>
+          Run <code style="background:rgba(0,0,0,.08);padding:2px 6px;border-radius:4px;">npm run sync:owners</code>
+          to pull your owners from AppFolio and populate this dashboard.
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="flex items-center gap-8 mb-16" id="filterRow" style="display:none !important;">
+          <span style="font-size:0.82rem;font-weight:600;color:var(--color-text-muted);">Show:</span>
+          <div class="period-filter" id="riskFilter">
+            <button class="period-btn active" data-risk="alert">At Risk &amp; Watch</button>
+            <button class="period-btn" data-risk="red">At Risk Only</button>
+            <button class="period-btn" data-risk="green">Healthy</button>
+            <button class="period-btn" data-risk="all">All Owners</button>
+          </div>
+        </div>
+
+        <!-- All clear -->
+        <div class="all-clear-banner" id="allClearBanner" style="display:none;">
+          <div class="all-clear-icon">&#10003;</div>
+          <div class="all-clear-text">All owners are healthy — no retention risks detected.</div>
+        </div>
+
+        <!-- Owner list -->
+        <div id="ownerListContainer"></div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module">
+    import { supabase, requireAuth, renderHeader, renderSidebar } from './auth.js'
+
+    // =========================================================================
+    // STATE
+    // =========================================================================
+    let allOwners   = []
+    let currentRisk = 'alert'  // 'alert' | 'red' | 'green' | 'all'
+
+    // =========================================================================
+    // BOOT
+    // =========================================================================
+    const auth = await requireAuth()
+    if (!auth) throw new Error('Not authenticated')
+
+    const { profile } = auth
+    renderHeader(profile)
+    renderSidebar('owner-health', profile.role)
+
+    document.getElementById('btnRefresh').addEventListener('click', loadOwners)
+
+    document.getElementById('riskFilter').addEventListener('click', e => {
+      const btn = e.target.closest('.period-btn')
+      if (!btn) return
+      document.querySelectorAll('#riskFilter .period-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      currentRisk = btn.dataset.risk
+      renderOwnerList()
+    })
+
+    await loadOwners()
+
+    // =========================================================================
+    // LOAD
+    // =========================================================================
+    async function loadOwners() {
+      try {
+        const { data, error } = await supabase
+          .from('v_owner_health')
+          .select('*')
+          .order('risk_score', { ascending: false })
+
+        if (error) throw error
+
+        allOwners = data || []
+        render()
+
+      } catch (err) {
+        document.getElementById('loadingState').innerHTML = `
+          <div class="alert alert-danger" style="max-width:520px;">
+            Could not load owner health data: ${escHtml(err.message || String(err))}
+          </div>
+        `
+        document.getElementById('loadingState').style.display = 'flex'
+        document.getElementById('ownerHealthContent').style.display = 'none'
+      }
+    }
+
+    // =========================================================================
+    // RENDER
+    // =========================================================================
+    function render() {
+      const red    = allOwners.filter(o => o.risk_level === 'red')
+      const yellow = allOwners.filter(o => o.risk_level === 'yellow')
+      const green  = allOwners.filter(o => o.risk_level === 'green')
+
+      // Summary counts
+      document.getElementById('countRed').textContent    = red.length
+      document.getElementById('countYellow').textContent = yellow.length
+      document.getElementById('countGreen').textContent  = green.length
+
+      // Highlight the highest-risk pill
+      document.getElementById('pillRed').classList.toggle('risk-pill-active', red.length > 0)
+      document.getElementById('pillYellow').classList.toggle('risk-pill-active', yellow.length > 0 && red.length === 0)
+
+      // All-clear vs table
+      if (allOwners.length === 0) {
+        document.getElementById('noOwnersNotice').style.display = ''
+        document.getElementById('filterRow').style.removeProperty('display')
+        document.getElementById('filterRow').style.display = 'none'
+        document.getElementById('allClearBanner').style.display  = 'none'
+      } else if (red.length === 0 && yellow.length === 0) {
+        document.getElementById('noOwnersNotice').style.display = 'none'
+        document.getElementById('filterRow').style.removeProperty('display')
+        document.getElementById('filterRow').style.display = 'flex'
+        document.getElementById('allClearBanner').style.display  = ''
+      } else {
+        document.getElementById('noOwnersNotice').style.display = 'none'
+        document.getElementById('filterRow').style.removeProperty('display')
+        document.getElementById('filterRow').style.display = 'flex'
+        document.getElementById('allClearBanner').style.display  = 'none'
+      }
+
+      renderOwnerList()
+
+      document.getElementById('lastRefreshed').textContent = 'Updated just now'
+      document.getElementById('loadingState').style.display       = 'none'
+      document.getElementById('ownerHealthContent').style.display = ''
+    }
+
+    function getFilteredOwners() {
+      if (currentRisk === 'alert')  return allOwners.filter(o => o.risk_level !== 'green')
+      if (currentRisk === 'red')    return allOwners.filter(o => o.risk_level === 'red')
+      if (currentRisk === 'green')  return allOwners.filter(o => o.risk_level === 'green')
+      return allOwners
+    }
+
+    function renderOwnerList() {
+      const container = document.getElementById('ownerListContainer')
+      const owners    = getFilteredOwners()
+
+      if (owners.length === 0) {
+        const msg = currentRisk === 'alert'  ? 'No owners currently at risk or under watch.'
+                  : currentRisk === 'red'    ? 'No owners currently at risk.'
+                  : currentRisk === 'green'  ? 'No healthy owners found.'
+                  : 'No owners found. Run npm run sync:owners to load owner data.'
+        container.innerHTML = `
+          <div style="padding:48px 0; text-align:center; color:var(--color-text-muted); font-size:0.9rem;">
+            ${escHtml(msg)}
+          </div>
+        `
+        return
+      }
+
+      const AVATAR_COLORS = [
+        '#1e3a5f','#c0392b','#8e44ad','#2980b9',
+        '#27ae60','#d35400','#16a085','#2c3e50'
+      ]
+
+      const rowsHtml = owners.map((o, i) => {
+        const initials    = getInitials(o.name)
+        const avatarBg    = AVATAR_COLORS[i % AVATAR_COLORS.length]
+        const riskClass   = `owner-risk-${o.risk_level}`
+        const badgeLabel  = o.risk_level === 'red' ? 'At Risk' : o.risk_level === 'yellow' ? 'Watch' : 'Healthy'
+        const score       = o.risk_score ?? 0
+        const barColor    = o.risk_level === 'red' ? 'var(--color-danger)' :
+                            o.risk_level === 'yellow' ? 'var(--color-warning)' : 'var(--color-success)'
+
+        // Vacancy cell
+        const vacancyHtml = o.vacant_units > 0
+          ? `<strong class="kpi-danger">${o.vacant_units}</strong>
+             <span class="text-muted" style="font-size:0.78rem;"> unit${o.vacant_units !== 1 ? 's' : ''}
+             (avg ${Math.round(o.avg_days_vacant)}d)</span>`
+          : `<span class="text-muted">—</span>`
+
+        // Response cell
+        const responseHtml = o.emails_received > 0
+          ? `<strong>${formatHours(o.avg_response_hours)}</strong>
+             <span class="text-muted" style="font-size:0.78rem;"> avg (${o.emails_received} email${o.emails_received !== 1 ? 's' : ''})</span>`
+          : `<span class="text-muted">No emails</span>`
+
+        // Open WOs cell
+        const woHtml = o.open_work_orders > 0
+          ? `<strong class="${o.open_work_orders >= 3 ? 'kpi-danger' : 'kpi-warning'}">${o.open_work_orders}</strong> open`
+          : `<span class="text-muted">—</span>`
+
+        // Last contact cell
+        const contactHtml = o.last_contact_at
+          ? formatRelative(o.last_contact_at)
+          : `<span class="text-muted">Never</span>`
+
+        // Alert callouts (shown below main row as inline hints)
+        const alerts = []
+        if (o.vacant_units > 0 && o.avg_days_vacant >= 14)
+          alerts.push(`Vacancy: ${o.vacant_units} unit${o.vacant_units !== 1 ? 's' : ''} vacant avg ${Math.round(o.avg_days_vacant)} days`)
+        if (o.avg_response_hours > 24 && o.emails_received > 0)
+          alerts.push(`Response: ${formatHours(o.avg_response_hours)} avg to reply to their emails`)
+        if (o.open_work_orders >= 3)
+          alerts.push(`Maintenance: ${o.open_work_orders} open work orders on their properties`)
+
+        const alertsHtml = alerts.length > 0
+          ? `<div class="owner-alerts">
+               ${alerts.map(a => `<span class="owner-alert-chip">${escHtml(a)}</span>`).join('')}
+             </div>`
+          : ''
+
+        return `
+          <div class="owner-card ${riskClass}">
+            <div class="owner-card-main">
+
+              <!-- Score -->
+              <div class="owner-score-col">
+                <div class="owner-score-number" style="color:${barColor}">${score}</div>
+                <div class="owner-score-bar-track">
+                  <div class="owner-score-bar-fill" style="width:${score}%;background:${barColor}"></div>
+                </div>
+                <span class="sla-badge sla-badge-${o.risk_level}" style="margin-top:4px;">${badgeLabel}</span>
+              </div>
+
+              <!-- Name -->
+              <div class="owner-name-col">
+                <div class="flex items-center gap-8">
+                  <div class="avatar" style="background:${avatarBg};width:36px;height:36px;font-size:0.8rem;">
+                    ${escHtml(initials)}
+                  </div>
+                  <div>
+                    <div style="font-weight:700;font-size:0.95rem;">${escHtml(o.name)}</div>
+                    ${o.email ? `<div style="font-size:0.78rem;color:var(--color-text-muted);">${escHtml(o.email)}</div>` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Properties -->
+              <div class="owner-metric-col text-center">
+                <div class="owner-metric-value">${o.property_count ?? 0}</div>
+                <div class="owner-metric-label">properties</div>
+              </div>
+
+              <!-- Vacancy -->
+              <div class="owner-metric-col">
+                ${vacancyHtml}
+                <div class="owner-metric-label" style="margin-top:2px;">vacancy</div>
+              </div>
+
+              <!-- Response time -->
+              <div class="owner-metric-col">
+                ${responseHtml}
+                <div class="owner-metric-label" style="margin-top:2px;">our response</div>
+              </div>
+
+              <!-- Open WOs -->
+              <div class="owner-metric-col text-center">
+                ${woHtml}
+                <div class="owner-metric-label" style="margin-top:2px;">work orders</div>
+              </div>
+
+              <!-- Last contact -->
+              <div class="owner-metric-col">
+                <div style="font-size:0.875rem;">${contactHtml}</div>
+                <div class="owner-metric-label" style="margin-top:2px;">last emailed us</div>
+              </div>
+
+              <!-- Action -->
+              <div class="owner-action-col">
+                ${o.email
+                  ? `<a href="mailto:${escHtml(o.email)}" class="btn btn-${o.risk_level === 'red' ? 'primary' : 'secondary'} btn-sm">
+                       ${o.risk_level === 'red' ? 'Reach Out' : 'Email'}
+                     </a>`
+                  : `<span class="text-muted" style="font-size:0.78rem;">No email</span>`
+                }
+              </div>
+
+            </div>
+            ${alertsHtml}
+          </div>
+        `
+      }).join('')
+
+      container.innerHTML = `
+        <div class="owner-list">${rowsHtml}</div>
+        <div style="margin-top:12px;font-size:0.75rem;color:var(--color-text-muted);">
+          Score 0&ndash;100 &mdash; vacancy (40 pts) + our response time (40 pts) + open work orders (20 pts).
+          Higher = more at risk. Scores update when you refresh or re-run syncs.
+        </div>
+      `
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+    function getInitials(name) {
+      if (!name) return '?'
+      const parts = name.trim().split(/\s+/)
+      return parts.length === 1
+        ? parts[0][0].toUpperCase()
+        : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    }
+
+    function formatHours(h) {
+      if (h == null || isNaN(h) || h === 0) return '—'
+      if (h < 1)  return `${Math.round(h * 60)}m`
+      if (h < 24) return `${h.toFixed(1)}h`
+      const days = Math.floor(h / 24)
+      const rem  = Math.round(h % 24)
+      return rem > 0 ? `${days}d ${rem}h` : `${days}d`
+    }
+
+    function formatRelative(iso) {
+      if (!iso) return '—'
+      const diff  = Date.now() - new Date(iso).getTime()
+      const hours = Math.floor(diff / 3600000)
+      const days  = Math.floor(diff / 86400000)
+      if (hours < 1)  return 'under 1h ago'
+      if (hours < 24) return `${hours}h ago`
+      if (days  < 7)  return `${days}d ago`
+      if (days  < 30) return `${Math.floor(days / 7)}w ago`
+      return `${Math.floor(days / 30)}mo ago`
+    }
+
+    function escHtml(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g,  '&amp;')
+        .replace(/</g,  '&lt;')
+        .replace(/>/g,  '&gt;')
+        .replace(/"/g,  '&quot;')
+    }
+  </script>
+
+</body>
+</html>

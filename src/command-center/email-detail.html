@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Detail — BPM Command Center</title>
+
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+  <style>
+    /* =========================================================
+       DESIGN TOKENS
+    ========================================================= */
+    :root {
+      --color-primary:       #1e3a5f;
+      --color-primary-light: #2a4f7c;
+      --color-accent:        #3498db;
+      --color-accent-hover:  #2980b9;
+      --color-success:       #2ecc71;
+      --color-warning:       #f39c12;
+      --color-danger:        #e74c3c;
+      --color-bg:            #f3f4f6;
+      --color-surface:       #ffffff;
+      --color-border:        #e1e4e8;
+      --color-text:          #2c3e50;
+      --color-text-muted:    #6c757d;
+      --sidebar-width:       220px;
+      --header-height:       60px;
+    }
+
+    /* =========================================================
+       RESET & BASE
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   Helvetica, Arial, sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100vh;
+    }
+
+    /* =========================================================
+       LAYOUT SHELL
+    ========================================================= */
+    #app-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--header-height);
+      background: var(--color-primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      z-index: 100;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    #app-sidebar {
+      position: fixed;
+      top: var(--header-height);
+      left: 0;
+      bottom: 0;
+      width: var(--sidebar-width);
+      background: var(--color-primary-light);
+      overflow-y: auto;
+      z-index: 90;
+    }
+
+    #main-content {
+      margin-top: var(--header-height);
+      margin-left: var(--sidebar-width);
+      padding: 24px 20px;
+      min-height: calc(100vh - var(--header-height));
+    }
+
+    /* =========================================================
+       LOADING / ERROR / NOT FOUND
+    ========================================================= */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 80px 20px;
+      color: var(--color-text-muted);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--color-border);
+      border-top-color: var(--color-accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-state {
+      background: #fff0f0;
+      border: 1px solid var(--color-danger);
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: var(--color-danger);
+      font-size: 0.9rem;
+    }
+
+    .not-found {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--color-text-muted);
+    }
+
+    .not-found a { color: var(--color-accent); text-decoration: none; }
+    .not-found a:hover { text-decoration: underline; }
+
+    /* =========================================================
+       BACK LINK
+    ========================================================= */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--color-accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+
+    .back-link:hover { color: var(--color-accent-hover); text-decoration: underline; }
+
+    /* =========================================================
+       TWO-COLUMN LAYOUT
+    ========================================================= */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* =========================================================
+       EMAIL BODY PANEL
+    ========================================================= */
+    .email-panel {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .email-meta {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .email-subject {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .meta-row {
+      display: flex;
+      gap: 6px;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .meta-label {
+      color: var(--color-text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .meta-value { color: var(--color-text); }
+
+    .meta-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    /* Generic badge */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .badge-new      { background: #dbeafe; color: #1e40af; }
+    .badge-assigned { background: #fef3c7; color: #92400e; }
+    .badge-handled  { background: #d1fae5; color: #065f46; }
+
+    /* Email body */
+    .email-body-wrap {
+      padding: 24px;
+      overflow-x: auto;
+    }
+
+    .email-body {
+      max-width: 100%;
+      word-break: break-word;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--color-text);
+    }
+
+    /* Contain images inside the body */
+    .email-body img { max-width: 100%; height: auto; }
+
+    /* =========================================================
+       ACTION PANEL
+    ========================================================= */
+    .action-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .action-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .action-card h3 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* Form controls */
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      color: var(--color-text);
+      background: var(--color-surface);
+      margin-bottom: 10px;
+      transition: border-color 0.15s;
+    }
+
+    select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(52,152,219,0.12);
+    }
+
+    textarea { resize: vertical; }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      width: 100%;
+      padding: 9px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-primary  { background: var(--color-accent);   color: #fff; }
+    .btn-primary:hover:not(:disabled)  { background: var(--color-accent-hover); }
+
+    .btn-success  { background: var(--color-success);  color: #fff; }
+    .btn-success:hover:not(:disabled)  { background: #27ae60; }
+
+    .btn-neutral  { background: #e2e8f0; color: var(--color-text); }
+    .btn-neutral:hover:not(:disabled)  { background: #cbd5e1; }
+
+    /* Inline status messages */
+    .action-msg {
+      font-size: 0.8rem;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      display: none;
+    }
+
+    .action-msg.success { background: #d1fae5; color: #065f46; display: block; }
+    .action-msg.error   { background: #fee2e2; color: #991b1b; display: block; }
+
+    .reply-note {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    /* =========================================================
+       ACTION HISTORY (timeline)
+    ========================================================= */
+    .history-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 4px;
+    }
+
+    .history-card h3 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-muted);
+      margin-bottom: 12px;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .history-item {
+      display: flex;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--color-border);
+      font-size: 0.82rem;
+    }
+
+    .history-item:last-child { border-bottom: none; }
+
+    .history-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+
+    .history-text { color: var(--color-text); line-height: 1.4; }
+    .history-time { color: var(--color-text-muted); font-size: 0.75rem; margin-top: 2px; }
+
+    .history-empty {
+      font-size: 0.82rem;
+      color: var(--color-text-muted);
+      font-style: italic;
+    }
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================= */
+    @media (max-width: 900px) {
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      #app-sidebar    { display: none; }
+      #main-content   { margin-left: 0; padding: 16px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app-header">BPM Command Center</div>
+  <nav id="app-sidebar"></nav>
+
+  <main id="main-content">
+    <!-- Filled by JS -->
+    <div class="loading-state" id="page-loading">
+      <div class="spinner"></div>
+      <p>Loading email...</p>
+    </div>
+    <div id="page-content" style="display:none;"></div>
+  </main>
+
+  <script type="module">
+    /* =========================================================
+       SUPABASE CONFIG
+       Replace the placeholder strings below with your
+       Supabase project URL and anon key.
+    ========================================================= */
+    const SUPABASE_URL      = 'https://kyekqaxuzpozuhyhibcn.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZWtxYXh1enBvenVoeWhpYmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDE1MjksImV4cCI6MjA5ODA3NzUyOX0.UQp6Inqrvjfxax7AjRRujw6PXId9Whmknv5vkX8DcC8'
+
+    /* =========================================================
+       BOOTSTRAP CHECK
+    ========================================================= */
+    const isConfigured =
+      SUPABASE_URL      !== 'SUPABASE_URL_HERE' &&
+      SUPABASE_ANON_KEY !== 'SUPABASE_ANON_KEY_HERE' &&
+      SUPABASE_URL.startsWith('https://')
+
+    if (!isConfigured) {
+      document.getElementById('page-loading').innerHTML = `
+        <div class="error-state">
+          <strong>Setup needed.</strong> Replace
+          <code>SUPABASE_URL_HERE</code> and <code>SUPABASE_ANON_KEY_HERE</code>
+          in this file with your Supabase credentials.
+        </div>`
+      throw new Error('Supabase not configured')
+    }
+
+    /* =========================================================
+       SUPABASE CLIENT
+    ========================================================= */
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    /* =========================================================
+       AUTH
+    ========================================================= */
+    import { requireAuth, renderHeader, renderSidebar } from './auth.js'
+
+    const emailId = new URLSearchParams(location.search).get('id')
+    if (!emailId) { location.href = 'email-triage.html'; throw new Error('no id') }
+
+    const { user, profile } = await requireAuth()
+    renderHeader(profile)
+    renderSidebar('email-triage', profile.role)
+
+    /* =========================================================
+       LOAD EMAIL
+    ========================================================= */
+    const { data: email, error: emailError } = await db
+      .from('email_cache')
+      .select('*, email_categories(name, color), profiles!assigned_to(display_name)')
+      .eq('id', emailId)
+      .single()
+
+    if (emailError || !email) {
+      document.getElementById('page-loading').style.display = 'none'
+      document.getElementById('page-content').style.display = 'block'
+      document.getElementById('page-content').innerHTML = `
+        <div class="not-found">
+          <p>Email not found or you do not have permission to view it.</p>
+          <p style="margin-top:10px;"><a href="email-triage.html">← Back to Inbox</a></p>
+        </div>`
+      throw new Error('Email not found')
+    }
+
+    /* =========================================================
+       LOAD SUPPORTING DATA
+    ========================================================= */
+    const [profilesRes, categoriesRes, historyRes] = await Promise.all([
+      db.from('profiles').select('id, display_name').order('display_name'),
+      db.from('email_categories').select('id, name, color').order('name'),
+      db.from('email_actions')
+        .select('*, profiles!performed_by(display_name), email_categories(name)')
+        .eq('email_id', emailId)
+        .order('performed_at', { ascending: false })
+    ])
+
+    const allProfiles  = profilesRes.data  || []
+    const allCategories = categoriesRes.data || []
+    const actionHistory = historyRes.data   || []
+
+    /* =========================================================
+       SANITIZE EMAIL BODY HTML
+       Strip <script>, <iframe>, and on* event attributes.
+    ========================================================= */
+    function sanitizeHtml(html) {
+      if (!html) return ''
+      return html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+        .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '')
+        .replace(/\s+on\w+\s*=\s*[^\s>]*/gi, '')
+        .replace(/javascript\s*:/gi, 'nojavascript:')
+    }
+
+    /* =========================================================
+       HELPERS
+    ========================================================= */
+    function escapeHtml(str) {
+      if (!str) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;')
+    }
+
+    function escapeAttr(str) {
+      if (!str) return ''
+      return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#x27;')
+    }
+
+    function formatDateTime(isoString) {
+      if (!isoString) return ''
+      const d = new Date(isoString)
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const hh   = d.getHours()
+      const mm   = String(d.getMinutes()).padStart(2, '0')
+      const ampm = hh >= 12 ? 'PM' : 'AM'
+      const h12  = hh % 12 || 12
+      return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} at ${h12}:${mm} ${ampm}`
+    }
+
+    function timeAgo(isoString) {
+      if (!isoString) return ''
+      const secs = Math.floor((Date.now() - new Date(isoString)) / 1000)
+      if (secs < 60)   return 'just now'
+      if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
+      if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+      return `${Math.floor(secs / 86400)}d ago`
+    }
+
+    function statusBadgeHtml(status) {
+      const map = {
+        new:      '<span class="badge badge-new">New</span>',
+        assigned: '<span class="badge badge-assigned">Assigned</span>',
+        handled:  '<span class="badge badge-handled">Handled</span>',
+      }
+      return map[status] || ''
+    }
+
+    function categoryBadgeHtml(cat) {
+      if (!cat) return ''
+      return `<span class="badge"
+        style="background:${escapeAttr(cat.color)}20; color:${escapeAttr(cat.color)}; border:1px solid ${escapeAttr(cat.color)}40;">
+        ${escapeHtml(cat.name)}
+      </span>`
+    }
+
+    function showMsg(el, type, text) {
+      el.className = `action-msg ${type}`
+      el.textContent = text
+      clearTimeout(el._timer)
+      if (type === 'success') {
+        el._timer = setTimeout(() => { el.className = 'action-msg'; el.textContent = '' }, 5000)
+      }
+    }
+
+    /* =========================================================
+       RENDER PAGE
+    ========================================================= */
+    function buildPage(em) {
+      const isStaff = profile.role === 'staff'
+
+      // Profiles dropdown (exclude self — usually still include for admin reassigns)
+      const profileOptions = allProfiles
+        .map(p => `<option value="${escapeAttr(p.id)}"
+            ${em.assigned_to === p.id ? 'selected' : ''}>
+            ${escapeHtml(p.display_name)}
+          </option>`)
+        .join('')
+
+      const categoryOptions = allCategories
+        .map(c => `<option value="${escapeAttr(c.id)}"
+            ${em.category_id === c.id ? 'selected' : ''}>
+            ${escapeHtml(c.name)}
+          </option>`)
+        .join('')
+
+      const assignedName = em.profiles
+        ? em.profiles.display_name
+        : (em.assigned_to ? 'Unknown' : 'Unassigned')
+
+      // Assign section — hidden for staff
+      const assignSection = isStaff ? '' : `
+        <div class="action-card" id="card-assign">
+          <h3>Assign</h3>
+          <select id="select-assignee">
+            <option value="">— Select team member —</option>
+            ${profileOptions}
+          </select>
+          <button class="btn btn-primary" id="btn-assign">Assign</button>
+          <div class="action-msg" id="msg-assign"></div>
+        </div>`
+
+      // Status button label
+      const isHandled = em.status === 'handled'
+      const statusBtn = isHandled
+        ? `<button class="btn btn-neutral" id="btn-status">Reopen</button>`
+        : `<button class="btn btn-success" id="btn-status">Mark as Handled</button>`
+
+      return `
+        <a class="back-link" href="email-triage.html">&#8592; Back to Inbox</a>
+
+        <div class="detail-grid" id="detail-grid">
+
+          <!-- LEFT: email body -->
+          <div class="email-panel">
+            <div class="email-meta">
+              <div class="email-subject">${escapeHtml(em.subject || '(no subject)')}</div>
+              <div class="meta-row">
+                <span class="meta-label">From:</span>
+                <span class="meta-value">
+                  ${escapeHtml(em.from_name || '')}
+                  ${em.from_address ? `&lt;${escapeHtml(em.from_address)}&gt;` : ''}
+                </span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Received:</span>
+                <span class="meta-value">${formatDateTime(em.received_at)}</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Assigned to:</span>
+                <span class="meta-value" id="assigned-display">${escapeHtml(assignedName)}</span>
+              </div>
+              <div class="meta-badges" id="status-badges">
+                ${statusBadgeHtml(em.status)}
+                ${categoryBadgeHtml(em.email_categories)}
+              </div>
+            </div>
+            <div class="email-body-wrap">
+              <div class="email-body" id="email-body-content"></div>
+            </div>
+          </div>
+
+          <!-- RIGHT: actions -->
+          <div class="action-panel">
+
+            ${assignSection}
+
+            <div class="action-card">
+              <h3>Category</h3>
+              <select id="select-category">
+                <option value="">— Select category —</option>
+                ${categoryOptions}
+              </select>
+              <button class="btn btn-primary" id="btn-category">Apply Category</button>
+              <div class="action-msg" id="msg-category"></div>
+            </div>
+
+            <div class="action-card">
+              <h3>Reply</h3>
+              <textarea id="reply-text" rows="6"
+                placeholder="Type your reply here..."></textarea>
+              <button class="btn btn-primary" id="btn-reply">Send Reply</button>
+              <p class="reply-note">Reply will be sent from danyel@bpmsd.com via Microsoft 365</p>
+              <div class="action-msg" id="msg-reply"></div>
+            </div>
+
+            <div class="action-card">
+              <h3>Status</h3>
+              <div id="status-btn-wrap">${statusBtn}</div>
+              <div class="action-msg" id="msg-status"></div>
+            </div>
+
+            <!-- Action history -->
+            <div class="history-card">
+              <h3>Activity</h3>
+              <div class="history-list" id="history-list">
+                ${buildHistory(actionHistory)}
+              </div>
+            </div>
+
+          </div>
+        </div>`
+    }
+
+    function buildHistory(actions) {
+      if (!actions.length) {
+        return '<p class="history-empty">No activity yet.</p>'
+      }
+      return actions.map(a => {
+        const who = a.profiles ? a.profiles.display_name : 'Someone'
+        let desc = ''
+        switch (a.action_type) {
+          case 'assigned':       desc = `assigned to ${escapeHtml(a.assigned_to ? '...' : 'someone')}`; break
+          case 'categorized':    desc = `labeled ${escapeHtml(a.email_categories ? a.email_categories.name : 'a category')}`; break
+          case 'replied':        desc = 'sent a reply'; break
+          case 'marked_handled': desc = 'marked as handled'; break
+          case 'marked_new':     desc = 'reopened'; break
+          default:               desc = a.action_type
+        }
+        return `
+          <div class="history-item">
+            <div class="history-dot"></div>
+            <div>
+              <div class="history-text"><strong>${escapeHtml(who)}</strong> ${desc}</div>
+              <div class="history-time">${timeAgo(a.performed_at)}</div>
+            </div>
+          </div>`
+      }).join('')
+    }
+
+    /* =========================================================
+       INSERT PAGE + WIRE EVENTS
+    ========================================================= */
+    document.getElementById('page-loading').style.display = 'none'
+    const pageContent = document.getElementById('page-content')
+    pageContent.style.display = 'block'
+    pageContent.innerHTML = buildPage(email)
+
+    // Set email body via innerHTML (sanitized)
+    document.getElementById('email-body-content').innerHTML =
+      sanitizeHtml(email.body_html || '<em style="color:#6c757d">No message body.</em>')
+
+    // Mutable state mirror
+    let currentStatus   = email.status
+    let currentCategory = email.category_id
+
+    /* ---- ASSIGN ---- */
+    if (profile.role !== 'staff') {
+      document.getElementById('btn-assign').addEventListener('click', async () => {
+        const btn  = document.getElementById('btn-assign')
+        const sel  = document.getElementById('select-assignee')
+        const msg  = document.getElementById('msg-assign')
+        const assigneeId = sel.value
+        if (!assigneeId) { showMsg(msg, 'error', 'Please select a team member.'); return }
+
+        btn.disabled = true
+        btn.textContent = 'Assigning...'
+
+        const { error: updateErr } = await db
+          .from('email_cache')
+          .update({ assigned_to: assigneeId, status: 'assigned' })
+          .eq('id', emailId)
+
+        if (updateErr) {
+          showMsg(msg, 'error', 'Could not assign: ' + updateErr.message)
+          btn.disabled = false; btn.textContent = 'Assign'
+          return
+        }
+
+        await db.from('email_actions').insert({
+          email_id:    emailId,
+          action_type: 'assigned',
+          performed_by: user.id,
+          assigned_to: assigneeId,
+        })
+
+        // Update status badge if it changed
+        if (currentStatus !== 'assigned') {
+          currentStatus = 'assigned'
+          refreshStatusBadges()
+        }
+
+        // Update assigned-to display name
+        const chosen = allProfiles.find(p => p.id === assigneeId)
+        if (chosen) {
+          document.getElementById('assigned-display').textContent = chosen.display_name
+        }
+
+        showMsg(msg, 'success', 'Assigned.')
+        btn.disabled = false; btn.textContent = 'Assign'
+        await refreshHistory()
+      })
+    }
+
+    /* ---- CATEGORIZE ---- */
+    document.getElementById('btn-category').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-category')
+      const sel = document.getElementById('select-category')
+      const msg = document.getElementById('msg-category')
+      const catId = sel.value
+      if (!catId) { showMsg(msg, 'error', 'Please select a category.'); return }
+
+      btn.disabled = true; btn.textContent = 'Saving...'
+
+      const { error } = await db
+        .from('email_cache')
+        .update({ category_id: catId })
+        .eq('id', emailId)
+
+      if (error) {
+        showMsg(msg, 'error', 'Could not apply category: ' + error.message)
+        btn.disabled = false; btn.textContent = 'Apply Category'
+        return
+      }
+
+      await db.from('email_actions').insert({
+        email_id:    emailId,
+        action_type: 'categorized',
+        performed_by: user.id,
+        category_id: catId,
+      })
+
+      currentCategory = catId
+      refreshStatusBadges()
+      showMsg(msg, 'success', 'Category applied.')
+      btn.disabled = false; btn.textContent = 'Apply Category'
+      await refreshHistory()
+    })
+
+    /* ---- REPLY ---- */
+    document.getElementById('btn-reply').addEventListener('click', async () => {
+      const btn  = document.getElementById('btn-reply')
+      const area = document.getElementById('reply-text')
+      const msg  = document.getElementById('msg-reply')
+      const body = area.value.trim()
+      if (!body) { showMsg(msg, 'error', 'Please enter a reply.'); return }
+
+      btn.disabled = true; btn.textContent = 'Logging...'
+
+      const { error } = await db.from('email_actions').insert({
+        email_id:    emailId,
+        action_type: 'replied',
+        performed_by: user.id,
+        reply_body:  body,
+      })
+
+      if (error) {
+        showMsg(msg, 'error', 'Could not log reply: ' + error.message)
+        btn.disabled = false; btn.textContent = 'Send Reply'
+        return
+      }
+
+      area.value = ''
+      showMsg(msg, 'success', 'Reply logged — run sync to send')
+      btn.disabled = false; btn.textContent = 'Send Reply'
+      await refreshHistory()
+    })
+
+    /* ---- STATUS TOGGLE ---- */
+    document.getElementById('status-btn-wrap').addEventListener('click', async (e) => {
+      if (!e.target.matches('#btn-status')) return
+      const btn = document.getElementById('btn-status')
+      const msg = document.getElementById('msg-status')
+
+      const newStatus    = currentStatus === 'handled' ? 'new' : 'handled'
+      const actionType   = newStatus === 'handled' ? 'marked_handled' : 'marked_new'
+      const label        = newStatus === 'handled' ? 'Marking as handled...' : 'Reopening...'
+
+      btn.disabled = true; btn.textContent = label
+
+      const { error } = await db
+        .from('email_cache')
+        .update({ status: newStatus })
+        .eq('id', emailId)
+
+      if (error) {
+        showMsg(msg, 'error', 'Could not update status: ' + error.message)
+        btn.disabled = false
+        btn.textContent = currentStatus === 'handled' ? 'Reopen' : 'Mark as Handled'
+        return
+      }
+
+      await db.from('email_actions').insert({
+        email_id:    emailId,
+        action_type: actionType,
+        performed_by: user.id,
+      })
+
+      currentStatus = newStatus
+      refreshStatusBadges()
+      updateStatusButton()
+      showMsg(msg, 'success', newStatus === 'handled' ? 'Marked as handled.' : 'Reopened.')
+      btn.disabled = false
+      await refreshHistory()
+    })
+
+    /* =========================================================
+       DOM REFRESH HELPERS
+    ========================================================= */
+    function refreshStatusBadges() {
+      const cat = allCategories.find(c => c.id === currentCategory) || null
+      document.getElementById('status-badges').innerHTML =
+        statusBadgeHtml(currentStatus) + categoryBadgeHtml(cat)
+    }
+
+    function updateStatusButton() {
+      const isHandled = currentStatus === 'handled'
+      document.getElementById('status-btn-wrap').innerHTML = isHandled
+        ? `<button class="btn btn-neutral" id="btn-status">Reopen</button>`
+        : `<button class="btn btn-success" id="btn-status">Mark as Handled</button>`
+    }
+
+    async function refreshHistory() {
+      const { data } = await db
+        .from('email_actions')
+        .select('*, profiles!performed_by(display_name), email_categories(name)')
+        .eq('email_id', emailId)
+        .order('performed_at', { ascending: false })
+      document.getElementById('history-list').innerHTML = buildHistory(data || [])
+    }
+  </script>
+
+</body>
+</html>

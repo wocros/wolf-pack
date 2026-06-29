@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turnover Board — BPM SD</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f4f6f9;
+  color: #1a1a2e;
+  font-size: 13px;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+/* ---- Header ---- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.header h1 { font-size: 22px; font-weight: 700; }
+.header .subtitle { font-size: 12px; color: #6b7280; margin-top: 3px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.last-synced { font-size: 11px; color: #9ca3af; }
+.refresh-btn {
+  background: #1a1a2e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.refresh-btn:hover { background: #2d2d4e; }
+
+/* ---- Setup / Error boxes ---- */
+.msg-box {
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.msg-box h3 { font-size: 14px; margin-bottom: 6px; }
+.msg-box p { font-size: 12px; line-height: 1.7; }
+.msg-box code { padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+.setup { background: #fef3c7; border: 1px solid #f59e0b; }
+.setup h3 { color: #92400e; }
+.setup p { color: #78350f; }
+.setup code { background: #fde68a; }
+.err { background: #fee2e2; border: 1px solid #ef4444; display: none; }
+.err h3 { color: #991b1b; }
+.err p { color: #7f1d1d; }
+
+/* ---- Loading ---- */
+.loading { text-align: center; padding: 60px 0; color: #6b7280; }
+.spinner {
+  display: inline-block;
+  width: 28px; height: 28px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #1a1a2e;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Summary Pills ---- */
+.summary-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-pill {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 18px;
+  text-align: center;
+  min-width: 110px;
+}
+.stat-pill .num { font-size: 24px; font-weight: 700; color: #1a1a2e; }
+.stat-pill .lbl { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.stat-pill.c-red   .num { color: #ef4444; }
+.stat-pill.c-amber .num { color: #f59e0b; }
+.stat-pill.c-green .num { color: #22c55e; }
+.stat-pill.c-blue  .num { color: #3b82f6; }
+
+/* ---- Table ---- */
+.table-wrap {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow-x: auto;
+}
+table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+thead th {
+  background: #1a1a2e;
+  color: #c8cae0;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  position: sticky;
+  top: 0;
+}
+thead th:first-child { border-radius: 11px 0 0 0; }
+thead th:last-child  { border-radius: 0 11px 0 0; }
+tbody tr { border-bottom: 1px solid #f3f4f6; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #fafafa; }
+tbody td { padding: 8px 12px; vertical-align: middle; }
+
+/* ---- Section label rows ---- */
+.sec-row { background: #f8fafc !important; }
+.sec-row td {
+  padding: 6px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.empty-row td { padding: 14px 12px; color: #9ca3af; font-style: italic; font-size: 12px; }
+
+/* ---- Property cell ---- */
+.prop  { font-weight: 600; }
+.ubadge {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 5px;
+}
+
+/* ---- Date classes ---- */
+.d-overdue { color: #ef4444; font-weight: 600; }
+.d-future  { color: #6b7280; }
+.d-today   { color: #f59e0b; font-weight: 600; }
+.d-movein  { color: #22c55e; font-weight: 600; }
+
+/* ---- Days-vacant pill ---- */
+.dp { display: inline-block; border-radius: 12px; padding: 2px 9px; font-size: 10px; font-weight: 700; }
+.dp-ok       { background: #dbeafe; color: #1e40af; }
+.dp-warn     { background: #fef9c3; color: #854d0e; }
+.dp-urgent   { background: #fee2e2; color: #991b1b; }
+.dp-critical { background: #7f1d1d; color: white; }
+
+/* ---- Work-order chips ---- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 68px;
+}
+.chip-done   { background: #dcfce7; color: #166534; }
+.chip-sched  { background: #dbeafe; color: #1e40af; }
+.chip-prog   { background: #ffedd5; color: #9a3412; }
+.chip-needed { background: #fef9c3; color: #854d0e; }
+.chip-na     { background: #f3f4f6; color: #9ca3af; }
+.chip-issue  { background: #fee2e2; color: #991b1b; }
+
+/* ---- Utility pills ---- */
+.upill {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 10px;
+  margin: 1px 2px;
+}
+.u-none { color: #d1d5db; font-size: 10px; }
+
+/* ---- Urgent row indicator ---- */
+.urgent { border-left: 3px solid #ef4444 !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🏠 Turnover Board</h1>
+    <div class="subtitle">Beyond Property Management SD — synced from AppFolio</div>
+  </div>
+  <div class="header-right">
+    <span class="last-synced" id="js-last-synced">—</span>
+    <button class="refresh-btn" onclick="loadBoard()">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="msg-box setup" id="js-setup" style="display:none">
+  <h3>⚙️ Setup Required</h3>
+  <p>
+    Open this file in a text editor and replace the two placeholder values near the top of
+    the &lt;script&gt; section:<br><br>
+    <code>SUPABASE_URL</code> — your Supabase project URL (e.g. https://xxxx.supabase.co)<br>
+    <code>SUPABASE_ANON_KEY</code> — your Supabase anon key (read-only, safe here)<br><br>
+    Find both in Supabase → Project Settings → API.
+  </p>
+</div>
+
+<div class="msg-box err" id="js-err">
+  <h3>⚠️ Could Not Load Data</h3>
+  <p id="js-err-msg"></p>
+</div>
+
+<div id="js-loading" class="loading">
+  <div><div class="spinner"></div></div>
+  <div>Loading turnover board...</div>
+</div>
+
+<div id="js-board" style="display:none">
+  <div class="summary-bar" id="js-summary"></div>
+  <div class="table-wrap">
+    <table>
+      <thead id="js-head"></thead>
+      <tbody id="js-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ── Configuration ─────────────────────────────────────────────────────────────
+// Replace both values below. Find them in Supabase → Project Settings → API.
+const SUPABASE_URL      = 'SUPABASE_URL_HERE'
+const SUPABASE_ANON_KEY = 'SUPABASE_ANON_KEY_HERE'
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SECTIONS = ['pending_moveout', 'active_turnover', 'down_unit', 'ready_to_rent']
+const SECTION_LABELS = {
+  pending_moveout: '📤 Pending Move-Outs',
+  active_turnover: '🔄 Active Turnovers',
+  down_unit:       '🔴 Down Units (Extended Vacancy)',
+  ready_to_rent:   '✅ Ready to Rent',
+}
+const CAT_LABELS = {
+  inspection: 'MO Inspection',
+  dryer_vent: 'Dryer Vent',
+  gardening:  'Gardening',
+  roof:       'Roof',
+  termite:    'Termite',
+  carpet:     'Carpet',
+  paint:      'Paint',
+  repairs:    'Repairs',
+  other:      'Other Work',
+}
+const CAT_ORDER = ['inspection','dryer_vent','gardening','roof','termite','carpet','paint','repairs']
+const REFRESH_MS = 5 * 60 * 1000
+
+let db = null
+
+function initDb() {
+  if (!SUPABASE_URL.includes('.supabase') || !SUPABASE_ANON_KEY.startsWith('eyJ')) {
+    document.getElementById('js-setup').style.display = 'block'
+    document.getElementById('js-loading').style.display = 'none'
+    return false
+  }
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  return true
+}
+
+function showError(msg) {
+  const box = document.getElementById('js-err')
+  box.style.display = 'block'
+  document.getElementById('js-err-msg').textContent = msg
+  document.getElementById('js-loading').style.display = 'none'
+}
+
+function fmtDate(s) {
+  if (!s) return '—'
+  return new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function dateClass(s) {
+  if (!s) return 'd-future'
+  const d = new Date(s + 'T00:00:00')
+  const t = new Date(); t.setHours(0,0,0,0)
+  if (d < t) return 'd-overdue'
+  if (d.getTime() === t.getTime()) return 'd-today'
+  return 'd-future'
+}
+
+function daysPill(days, status) {
+  if (status === 'pending_moveout') {
+    return `<span class="dp dp-ok">${days}d projected</span>`
+  }
+  if (days < 14)  return `<span class="dp dp-ok">${days} days</span>`
+  if (days < 30)  return `<span class="dp dp-warn">${days} days</span>`
+  if (days < 60)  return `<span class="dp dp-urgent">${days} days</span>`
+  return `<span class="dp dp-critical">${days} days</span>`
+}
+
+function woChip(wo) {
+  if (!wo) return '<span class="chip chip-na">N/A</span>'
+  switch (wo.status) {
+    case 'completed':   return `<span class="chip chip-done">✓ ${fmtDate(wo.completed_date)}</span>`
+    case 'scheduled':   return `<span class="chip chip-sched">Sched ${fmtDate(wo.scheduled_date)}</span>`
+    case 'in_progress': return '<span class="chip chip-prog">In Progress</span>'
+    case 'not_needed':  return '<span class="chip chip-na">N/A</span>'
+    default:            return '<span class="chip chip-needed">Needed</span>'
+  }
+}
+
+function utilHtml(utilities) {
+  const entries = Object.entries(utilities || {})
+  if (!entries.length) return '<span class="u-none">—</span>'
+  return entries.map(([k, v]) => `<span class="upill">${k}: ${v}</span>`).join('')
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+async function loadBoard() {
+  if (!db) return
+  document.getElementById('js-loading').style.display = 'block'
+  document.getElementById('js-board').style.display = 'none'
+  document.getElementById('js-err').style.display = 'none'
+
+  const { data: rows, error } = await db
+    .from('turnovers')
+    .select('*, turnover_work_orders(*)')
+    .order('move_out_date', { ascending: true })
+
+  if (error) { showError(`Database error: ${error.message}`); return }
+
+  const turnovers = rows || []
+  const now = new Date()
+  document.getElementById('js-last-synced').textContent =
+    `Loaded ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+
+  // Build dynamic column list from what's actually in the data
+  const foundCats = new Set(
+    turnovers.flatMap(t => (t.turnover_work_orders || []).map(wo => wo.category))
+  )
+  const categories = [
+    ...CAT_ORDER.filter(c => foundCats.has(c)),
+    ...[...foundCats].filter(c => !CAT_ORDER.includes(c) && c !== 'other'),
+    ...(foundCats.has('other') ? ['other'] : []),
+  ]
+
+  // Group by status section
+  const grouped = Object.fromEntries(SECTIONS.map(s => [s, []]))
+  for (const t of turnovers) {
+    const s = SECTIONS.includes(t.status) ? t.status : 'active_turnover'
+    grouped[s].push(t)
+  }
+
+  const counts = Object.fromEntries(SECTIONS.map(s => [s, grouped[s].length]))
+  const allActive = [...grouped.active_turnover, ...grouped.down_unit]
+  const avgDays = allActive.length
+    ? Math.round(allActive.reduce((sum, t) => sum + (t.days_vacant || 0), 0) / allActive.length)
+    : 0
+
+  // Summary bar
+  document.getElementById('js-summary').innerHTML = `
+    <div class="stat-pill c-red">
+      <div class="num">${counts.pending_moveout}</div>
+      <div class="lbl">Pending Move-Out</div>
+    </div>
+    <div class="stat-pill c-amber">
+      <div class="num">${counts.active_turnover}</div>
+      <div class="lbl">Active Turnovers</div>
+    </div>
+    <div class="stat-pill c-red">
+      <div class="num">${counts.down_unit}</div>
+      <div class="lbl">Down Units</div>
+    </div>
+    <div class="stat-pill c-green">
+      <div class="num">${counts.ready_to_rent}</div>
+      <div class="lbl">Ready to Rent</div>
+    </div>
+    <div class="stat-pill c-blue">
+      <div class="num">${avgDays}</div>
+      <div class="lbl">Avg Days Vacant</div>
+    </div>
+  `
+
+  // Table header
+  const totalCols = 4 + categories.length
+  document.getElementById('js-head').innerHTML = `
+    <tr>
+      <th>Property</th>
+      <th>Move-Out</th>
+      <th>Days Vacant</th>
+      ${categories.map(c => `<th>${CAT_LABELS[c] || c}</th>`).join('')}
+      <th>Utilities</th>
+      <th>Move-In</th>
+    </tr>
+  `
+
+  // Table body
+  let html = ''
+  for (const sec of SECTIONS) {
+    html += `<tr class="sec-row"><td colspan="${totalCols}">${SECTION_LABELS[sec]}</td></tr>`
+    const list = grouped[sec]
+    if (!list.length) {
+      html += `<tr class="empty-row"><td colspan="${totalCols}">No units in this section</td></tr>`
+      continue
+    }
+    for (const t of list) {
+      // Build work-order map for this turnover; prefer completed over pending for same category
+      const woMap = {}
+      for (const wo of t.turnover_work_orders || []) {
+        const existing = woMap[wo.category]
+        if (!existing || (wo.status === 'completed' && existing.status !== 'completed')) {
+          woMap[wo.category] = wo
+        }
+      }
+
+      const isUrgent = t.days_vacant >= 60 || t.status === 'down_unit'
+      const moCls = dateClass(t.move_out_date)
+
+      html += `
+        <tr${isUrgent ? ' class="urgent"' : ''}>
+          <td><span class="prop">${escHtml(t.property_name)}</span><span class="ubadge">${escHtml(t.unit_number)}</span></td>
+          <td class="${moCls}">${fmtDate(t.move_out_date)}</td>
+          <td>${daysPill(t.days_vacant || 0, t.status)}</td>
+          ${categories.map(c => `<td style="text-align:center">${woChip(woMap[c])}</td>`).join('')}
+          <td>${utilHtml(t.utilities)}</td>
+          <td class="${t.move_in_date ? 'd-movein' : 'd-future'}">${t.move_in_date ? fmtDate(t.move_in_date) : 'Not yet leased'}</td>
+        </tr>
+      `
+    }
+  }
+  document.getElementById('js-body').innerHTML = html
+  document.getElementById('js-loading').style.display = 'none'
+  document.getElementById('js-board').style.display = 'block'
+}
+
+// Boot
+if (initDb()) {
+  loadBoard()
+  setInterval(loadBoard, REFRESH_MS)
+}
+</script>
+</body>
+</html>
