@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Owner Portal — Beyond Property Management</title>
+  <link rel="stylesheet" href="portal.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+  <div class="login-page">
+    <div class="login-card">
+
+      <div class="login-logo">B</div>
+      <div class="login-title">Owner Portal</div>
+      <div class="login-subtitle">
+        Beyond Property Management<br>
+        Enter your email to receive a secure sign-in link.
+      </div>
+
+      <div id="formView">
+        <label class="form-label" for="emailInput">Your email address</label>
+        <input
+          class="form-input"
+          type="email"
+          id="emailInput"
+          placeholder="you@example.com"
+          autocomplete="email"
+          autofocus
+        >
+        <div id="errorMsg" class="login-error" style="display:none;"></div>
+        <button class="btn-primary" id="btnSend">Send me a sign-in link</button>
+      </div>
+
+      <div id="successView" style="display:none;">
+        <div class="login-success">
+          <strong>Check your email.</strong><br>
+          We sent a sign-in link to <span id="sentEmail"></span>.
+          Click the link in that email to access your portal.
+        </div>
+        <div style="text-align:center;margin-top:16px;font-size:0.82rem;color:var(--color-text-muted);">
+          Didn't get it?
+          <button id="btnResend" style="background:none;border:none;color:var(--brand-blue);cursor:pointer;font-size:0.82rem;text-decoration:underline;">
+            Resend
+          </button>
+        </div>
+      </div>
+
+      <div class="login-powered">Powered by Beyond Property Management &middot; San Diego, CA</div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL      = 'https://kyekqaxuzpozuhyhibcn.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZWtxYXh1enBvenVoeWhpYmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDE1MjksImV4cCI6MjA5ODA3NzUyOX0.UQp6Inqrvjfxax7AjRRujw6PXId9Whmknv5vkX8DcC8'
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    // If user already has a session, go straight to dashboard
+    db.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = 'dashboard.html'
+    })
+
+    const emailInput = document.getElementById('emailInput')
+    const btnSend    = document.getElementById('btnSend')
+    const errorMsg   = document.getElementById('errorMsg')
+    const formView   = document.getElementById('formView')
+    const successView= document.getElementById('successView')
+    const sentEmail  = document.getElementById('sentEmail')
+    const btnResend  = document.getElementById('btnResend')
+
+    async function sendMagicLink() {
+      const email = emailInput.value.trim()
+      errorMsg.style.display = 'none'
+
+      if (!email || !email.includes('@')) {
+        showError('Please enter a valid email address.')
+        return
+      }
+
+      btnSend.disabled    = true
+      btnSend.textContent = 'Sending…'
+
+      try {
+        // The redirect URL brings the owner back to the dashboard after clicking the link.
+        // This URL must be added to Supabase Dashboard > Auth > URL Configuration > Redirect URLs.
+        const redirectTo = window.location.origin + '/dashboard.html'
+
+        const { error } = await db.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: redirectTo }
+        })
+
+        if (error) throw error
+
+        sentEmail.textContent = email
+        formView.style.display    = 'none'
+        successView.style.display = ''
+
+      } catch (err) {
+        showError(err.message || 'Something went wrong. Please try again.')
+        btnSend.disabled    = false
+        btnSend.textContent = 'Send me a sign-in link'
+      }
+    }
+
+    function showError(msg) {
+      errorMsg.textContent    = msg
+      errorMsg.style.display  = ''
+    }
+
+    btnSend.addEventListener('click', sendMagicLink)
+    btnResend.addEventListener('click', () => {
+      formView.style.display    = ''
+      successView.style.display = 'none'
+      btnSend.disabled          = false
+      btnSend.textContent       = 'Send me a sign-in link'
+    })
+    emailInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendMagicLink()
+    })
+  </script>
+
+</body>
+</html>

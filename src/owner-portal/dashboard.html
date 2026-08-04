@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Portfolio — Beyond Property Management</title>
+  <link rel="stylesheet" href="portal.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+  <!-- Header (rendered by JS after auth) -->
+  <header class="portal-header" id="portalHeader">
+    <span class="portal-brand">BPM <span>Owner Portal</span></span>
+  </header>
+
+  <!-- Loading state -->
+  <div class="portal-loading" id="loadingView">
+    <div class="spinner"></div>
+    <span>Loading your portfolio&hellip;</span>
+  </div>
+
+  <!-- Not authorized (email not in owners table) -->
+  <div style="display:none;max-width:480px;margin:60px auto;padding:0 20px;" id="unauthorizedView">
+    <div class="alert alert-danger">
+      <strong>Not authorized.</strong><br>
+      Your email address is not registered as a property owner with Beyond Property Management.
+      Please contact us at <a href="mailto:danyel@bpmsd.com" style="color:inherit;font-weight:600;">danyel@bpmsd.com</a>
+      if you believe this is an error.
+    </div>
+    <div style="text-align:center;margin-top:16px;">
+      <button onclick="signOut()" style="background:none;border:1px solid #e2e8f0;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:0.85rem;">
+        Sign Out
+      </button>
+    </div>
+  </div>
+
+  <!-- Main portal content -->
+  <div id="portalContent" style="display:none;">
+
+    <!-- Hero: the blue ocean headline metric -->
+    <div class="portal-hero" id="heroSection">
+      <div class="portal-hero-eyebrow">Beyond Property Management</div>
+      <div class="portal-hero-number" id="heroNumber">—</div>
+      <div class="portal-hero-label" id="heroLabel">avg days to resolve a maintenance request on your properties</div>
+      <div class="portal-hero-sub-grid">
+        <div class="portal-hero-sub-item">
+          <div class="portal-hero-sub-number" id="heroOpen">—</div>
+          <div class="portal-hero-sub-label">open right now</div>
+        </div>
+        <div class="portal-hero-sub-item">
+          <div class="portal-hero-sub-number" id="heroClosed">—</div>
+          <div class="portal-hero-sub-label">closed this month</div>
+        </div>
+        <div class="portal-hero-sub-item">
+          <div class="portal-hero-sub-number" id="heroOver7">—</div>
+          <div class="portal-hero-sub-label">open &gt;7 days</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="portal-wrapper">
+
+      <!-- Properties section -->
+      <div style="margin-top:32px;">
+        <div class="section-title">Your Properties</div>
+        <div class="section-sub" id="portfolioSub">All units managed by BPM</div>
+        <div id="propertiesContainer"></div>
+      </div>
+
+      <!-- Open work orders section -->
+      <div style="margin-top:32px;">
+        <div class="section-title">Open Maintenance Items</div>
+        <div class="section-sub">Items currently being worked on or scheduled</div>
+        <div id="openWorkOrdersContainer"></div>
+      </div>
+
+      <!-- Closed this month section -->
+      <div style="margin-top:32px;">
+        <div class="section-title">Closed This Month</div>
+        <div class="section-sub">Maintenance items resolved since the 1st</div>
+        <div id="closedWorkOrdersContainer"></div>
+      </div>
+
+      <!-- Footer -->
+      <div class="portal-footer">
+        Beyond Property Management &middot; San Diego, CA &middot; <a href="https://bpmsd.com" style="color:inherit;">bpmsd.com</a>
+        <br><span id="footerSynced" style="margin-top:4px;display:inline-block;"></span>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL      = 'https://kyekqaxuzpozuhyhibcn.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZWtxYXh1enBvenVoeWhpYmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1MDE1MjksImV4cCI6MjA5ODA3NzUyOX0.UQp6Inqrvjfxax7AjRRujw6PXId9Whmknv5vkX8DcC8'
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    // =========================================================================
+    // INIT — pick up magic-link session from URL hash, then load data
+    // =========================================================================
+    async function init() {
+      // Supabase picks up the token from the URL hash automatically on getSession()
+      const { data: { session }, error: sessErr } = await db.auth.getSession()
+
+      if (sessErr || !session) {
+        // No session — send to login
+        window.location.href = 'login.html'
+        return
+      }
+
+      // Verify the authenticated email is a registered owner
+      const { data: ownerRows, error: ownerErr } = await db
+        .from('v_my_owner_info')
+        .select('*')
+        .limit(1)
+
+      if (ownerErr || !ownerRows || ownerRows.length === 0) {
+        // Email not in owners table
+        show('unauthorizedView')
+        hide('loadingView')
+        renderHeaderBasic(session.user.email)
+        return
+      }
+
+      const owner = ownerRows[0]
+      renderHeader(owner)
+      await loadPortal()
+    }
+
+    // =========================================================================
+    // LOAD ALL DATA IN PARALLEL
+    // =========================================================================
+    async function loadPortal() {
+      try {
+        const [statsRes, portfolioRes, workOrdersRes] = await Promise.all([
+          db.from('v_my_maintenance_stats').select('*').limit(1),
+          db.from('v_my_portfolio').select('*'),
+          db.from('v_my_work_orders').select('*').order('created_at', { ascending: false }).limit(100)
+        ])
+
+        if (statsRes.error)      throw statsRes.error
+        if (portfolioRes.error)  throw portfolioRes.error
+        if (workOrdersRes.error) throw workOrdersRes.error
+
+        const stats      = statsRes.data[0] || {}
+        const portfolio  = portfolioRes.data || []
+        const workOrders = workOrdersRes.data || []
+
+        renderHero(stats)
+        renderProperties(portfolio)
+        renderWorkOrders(workOrders)
+
+        // Last synced
+        const latest = portfolio.reduce((max, p) => {
+          const t = p.last_synced_at ? new Date(p.last_synced_at) : null
+          return t && (!max || t > max) ? t : max
+        }, null)
+        if (latest) {
+          document.getElementById('footerSynced').textContent =
+            'Data last synced ' + formatRelative(latest.toISOString())
+        }
+
+        hide('loadingView')
+        show('portalContent')
+
+      } catch (err) {
+        document.getElementById('loadingView').innerHTML = `
+          <div class="alert alert-danger" style="max-width:480px;">
+            Could not load your portfolio data. Please try refreshing.<br>
+            <small style="opacity:.7;">${escHtml(err.message)}</small>
+          </div>
+        `
+      }
+    }
+
+    // =========================================================================
+    // RENDER: Hero metric
+    // =========================================================================
+    function renderHero(stats) {
+      const avgDays = stats.avg_days_to_close != null ? stats.avg_days_to_close : null
+      document.getElementById('heroNumber').textContent  = avgDays != null ? avgDays + 'd' : '—'
+      document.getElementById('heroLabel').textContent   =
+        avgDays != null
+          ? 'avg days to resolve a maintenance request on your properties'
+          : 'No closed work orders yet — we will update this as work is completed'
+      document.getElementById('heroOpen').textContent   = stats.open_work_orders  ?? '0'
+      document.getElementById('heroClosed').textContent = stats.closed_this_month ?? '0'
+      document.getElementById('heroOver7').textContent  = stats.open_over_7_days  ?? '0'
+    }
+
+    // =========================================================================
+    // RENDER: Properties
+    // =========================================================================
+    function renderProperties(portfolio) {
+      const container = document.getElementById('propertiesContainer')
+
+      if (portfolio.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            No properties found. Contact BPM if this looks wrong.
+          </div>
+        `
+        document.getElementById('portfolioSub').textContent = ''
+        return
+      }
+
+      const totalUnits    = portfolio.reduce((s, p) => s + (p.total_units || 0), 0)
+      const totalOccupied = portfolio.reduce((s, p) => s + (p.occupied    || 0), 0)
+      const totalVacant   = portfolio.reduce((s, p) => s + (p.vacant      || 0), 0)
+      const totalRoll     = portfolio.reduce((s, p) => s + parseFloat(p.total_rent_roll || 0), 0)
+      const portPct       = totalUnits > 0 ? Math.round(totalOccupied / totalUnits * 100) : null
+
+      document.getElementById('portfolioSub').textContent =
+        `${totalUnits} total unit${totalUnits !== 1 ? 's' : ''} across ${portfolio.length} propert${portfolio.length !== 1 ? 'ies' : 'y'}`
+
+      const html = portfolio.map(p => {
+        const hasVacancy  = p.vacant > 0
+        const fullyOcc    = p.vacant === 0 && p.occupied > 0
+        const pct         = p.occupancy_pct != null ? parseFloat(p.occupancy_pct) : null
+        const rentRoll    = parseFloat(p.total_rent_roll || 0)
+        const collected   = parseFloat(p.collected_rent || 0)
+
+        const borderColor = hasVacancy ? 'var(--color-danger)' :
+                            fullyOcc   ? 'var(--color-success)' : 'var(--color-border)'
+
+        const badgeClass  = !fullyOcc && hasVacancy
+          ? (pct != null && pct < 50 ? 'occ-low' : 'occ-partial')
+          : 'occ-full'
+        const badgeLabel  = pct != null ? pct + '% occupied' : 'Unknown'
+
+        const barColor    = hasVacancy ? 'var(--color-danger)' : 'var(--color-success)'
+
+        return `
+          <div class="property-card" style="border-left-color:${borderColor};">
+            <div class="property-card-header">
+              <div>
+                <div class="property-name">${escHtml(p.property_name)}</div>
+                <div class="property-units-text">${p.total_units} unit${p.total_units !== 1 ? 's' : ''}</div>
+              </div>
+              <div class="occupancy-badge ${badgeClass}">${badgeLabel}</div>
+            </div>
+
+            <div class="occ-bar-track">
+              <div class="occ-bar-fill" style="width:${pct ?? 0}%;background:${barColor};"></div>
+            </div>
+
+            <div class="property-stats-row">
+              <div class="property-stat">
+                <div class="property-stat-value" style="color:var(--color-success);">${p.occupied ?? 0}</div>
+                <div class="property-stat-label">Occupied</div>
+              </div>
+              <div class="property-stat">
+                <div class="property-stat-value" style="color:${hasVacancy ? 'var(--color-danger)' : 'var(--color-text-muted)'};">${p.vacant ?? 0}</div>
+                <div class="property-stat-label">Vacant</div>
+              </div>
+              <div class="property-stat">
+                <div class="property-stat-value">${rentRoll > 0 ? formatDollars(collected) + '/mo' : '—'}</div>
+                <div class="property-stat-label">Monthly rent</div>
+              </div>
+            </div>
+
+            ${p.on_notice > 0 ? `
+              <div style="margin-top:10px;font-size:0.78rem;color:var(--color-warning);">
+                &#9888; ${p.on_notice} unit${p.on_notice !== 1 ? 's' : ''} on notice — we are actively working to fill ${p.on_notice !== 1 ? 'these' : 'this'}.
+              </div>
+            ` : ''}
+          </div>
+        `
+      }).join('')
+
+      container.innerHTML = html
+    }
+
+    // =========================================================================
+    // RENDER: Work orders (open + closed this month)
+    // =========================================================================
+    function renderWorkOrders(workOrders) {
+      const now        = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      const openOrders = workOrders.filter(wo =>
+        wo.status && !['completed', 'not_needed'].includes(wo.status.toLowerCase())
+      )
+      const closedThisMonth = workOrders.filter(wo =>
+        wo.status && ['completed', 'not_needed'].includes(wo.status.toLowerCase()) &&
+        wo.completed_date && new Date(wo.completed_date) >= monthStart
+      )
+
+      renderOpenOrders(openOrders)
+      renderClosedOrders(closedThisMonth)
+    }
+
+    function renderOpenOrders(orders) {
+      const container = document.getElementById('openWorkOrdersContainer')
+
+      if (orders.length === 0) {
+        container.innerHTML = `
+          <div class="all-clear">
+            <div class="all-clear-icon">&#10003;</div>
+            <div class="all-clear-text">
+              <div class="all-clear-title">No open maintenance items</div>
+              All maintenance on your properties is resolved.
+            </div>
+          </div>
+        `
+        return
+      }
+
+      container.innerHTML = `
+        <div class="card">
+          <table class="wo-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Property</th>
+                <th class="col-vendor">Vendor</th>
+                <th>Days open</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orders.map(wo => {
+                const daysOpen = wo.days_open != null ? parseInt(wo.days_open) : null
+                const daysClass = daysOpen == null ? '' :
+                                  daysOpen <= 3    ? 'days-ok' :
+                                  daysOpen <= 7    ? 'days-warn' : 'days-urgent'
+                const statusLabel = wo.status === 'scheduled' ? 'Scheduled' :
+                                    wo.status === 'in_progress' ? 'In Progress' : (wo.status || 'Open')
+                const statusClass = wo.status === 'scheduled' ? 'status-scheduled' : 'status-open'
+
+                return `
+                  <tr>
+                    <td>
+                      <div class="wo-category">${escHtml(wo.category || 'General')}</div>
+                      <div class="wo-description">${escHtml(truncate(wo.description || 'Maintenance item', 60))}</div>
+                      <div style="margin-top:4px;"><span class="status-badge ${statusClass}">${escHtml(statusLabel)}</span></div>
+                    </td>
+                    <td>
+                      <div style="font-size:0.82rem;font-weight:500;">${escHtml(wo.property_name || '—')}</div>
+                      ${wo.unit_number ? `<div class="text-sm text-muted">Unit ${escHtml(wo.unit_number)}</div>` : ''}
+                    </td>
+                    <td class="col-vendor" style="font-size:0.82rem;color:var(--color-text-muted);">
+                      ${escHtml(wo.vendor || '—')}
+                    </td>
+                    <td>
+                      ${daysOpen != null
+                        ? `<span class="days-chip ${daysClass}">${daysOpen}d</span>`
+                        : '<span class="text-muted text-sm">—</span>'
+                      }
+                    </td>
+                  </tr>
+                `
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+    }
+
+    function renderClosedOrders(orders) {
+      const container = document.getElementById('closedWorkOrdersContainer')
+
+      if (orders.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">No items closed yet this month.</div>
+        `
+        return
+      }
+
+      container.innerHTML = `
+        <div class="card">
+          <table class="wo-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Property</th>
+                <th class="col-vendor">Vendor</th>
+                <th>Resolved in</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orders.map(wo => {
+                const daysToClose = wo.days_to_close != null ? parseInt(wo.days_to_close) : null
+                const daysClass   = daysToClose == null ? '' :
+                                    daysToClose <= 3   ? 'days-ok' :
+                                    daysToClose <= 7   ? 'days-warn' : 'days-urgent'
+                return `
+                  <tr>
+                    <td>
+                      <div class="wo-category">${escHtml(wo.category || 'General')}</div>
+                      <div class="wo-description">${escHtml(truncate(wo.description || 'Maintenance item', 60))}</div>
+                      <div style="margin-top:4px;"><span class="status-badge status-completed">Completed</span></div>
+                    </td>
+                    <td>
+                      <div style="font-size:0.82rem;font-weight:500;">${escHtml(wo.property_name || '—')}</div>
+                      ${wo.unit_number ? `<div class="text-sm text-muted">Unit ${escHtml(wo.unit_number)}</div>` : ''}
+                    </td>
+                    <td class="col-vendor" style="font-size:0.82rem;color:var(--color-text-muted);">
+                      ${escHtml(wo.vendor || '—')}
+                    </td>
+                    <td>
+                      ${daysToClose != null
+                        ? `<span class="days-chip ${daysClass}">${daysToClose}d</span>`
+                        : '<span class="text-muted text-sm">—</span>'
+                      }
+                    </td>
+                  </tr>
+                `
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+    }
+
+    // =========================================================================
+    // HEADER
+    // =========================================================================
+    function renderHeader(owner) {
+      document.getElementById('portalHeader').innerHTML = `
+        <span class="portal-brand">BPM <span>Owner Portal</span></span>
+        <div class="portal-header-right">
+          <span class="portal-user">${escHtml(owner.name || owner.email)}</span>
+          <button class="btn-signout" onclick="signOut()">Sign Out</button>
+        </div>
+      `
+    }
+
+    function renderHeaderBasic(email) {
+      document.getElementById('portalHeader').innerHTML = `
+        <span class="portal-brand">BPM <span>Owner Portal</span></span>
+        <div class="portal-header-right">
+          <span class="portal-user">${escHtml(email)}</span>
+          <button class="btn-signout" onclick="signOut()">Sign Out</button>
+        </div>
+      `
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+    async function signOut() {
+      await db.auth.signOut()
+      window.location.href = 'login.html'
+    }
+
+    function show(id) { document.getElementById(id).style.display = '' }
+    function hide(id) { document.getElementById(id).style.display = 'none' }
+
+    function formatDollars(n) {
+      n = parseFloat(n) || 0
+      if (n >= 1000) return '$' + (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
+      return '$' + Math.round(n).toLocaleString()
+    }
+
+    function formatRelative(iso) {
+      if (!iso) return ''
+      const diff  = Date.now() - new Date(iso).getTime()
+      const hours = Math.floor(diff / 3600000)
+      const days  = Math.floor(diff / 86400000)
+      if (hours < 1)  return 'just now'
+      if (hours < 24) return `${hours}h ago`
+      return `${days}d ago`
+    }
+
+    function truncate(str, n) {
+      if (!str || str.length <= n) return str || ''
+      return str.slice(0, n) + '…'
+    }
+
+    function escHtml(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+    }
+
+    // Boot
+    init()
+  </script>
+
+</body>
+</html>

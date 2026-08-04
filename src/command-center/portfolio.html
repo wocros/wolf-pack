@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio — BPM Command Center</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+  <header class="app-header" id="app-header"></header>
+  <nav class="app-sidebar" id="app-sidebar"></nav>
+
+  <main class="app-main">
+    <div class="app-content">
+
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <span>Loading portfolio...</span>
+      </div>
+
+      <div id="portfolioContent" style="display:none;">
+
+        <!-- Page header -->
+        <div class="page-header">
+          <div class="flex justify-between items-center flex-wrap gap-12">
+            <div>
+              <div class="page-title">Portfolio</div>
+              <div class="page-subtitle">
+                All managed properties &mdash;
+                <span id="lastSynced" class="text-muted">loading&hellip;</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-8">
+              <div class="period-filter" id="vacancyFilter">
+                <button class="period-btn active" data-filter="all">All Properties</button>
+                <button class="period-btn" data-filter="vacant">With Vacancies</button>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btnRefresh">&#8635; Refresh</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- No data notice -->
+        <div class="alert alert-info mb-24" id="noDataNotice" style="display:none;">
+          <strong>Portfolio data not yet loaded.</strong>
+          Run <code style="background:rgba(0,0,0,.08);padding:2px 6px;border-radius:4px;">npm run sync:portfolio</code>
+          to pull all units from AppFolio and populate this view.
+        </div>
+
+        <!-- Summary cards -->
+        <div class="summary-grid summary-grid-4">
+
+          <div class="card">
+            <div class="card-title">Total Doors</div>
+            <div class="card-value" id="statDoors">—</div>
+            <div class="card-subtitle" id="statDoorsDetail">managed units</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Occupancy</div>
+            <div class="card-value" id="statOccupancy">—</div>
+            <div class="card-subtitle" id="statOccupancyDetail">across portfolio</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Monthly Rent Roll</div>
+            <div class="card-value" id="statRentRoll">—</div>
+            <div class="card-subtitle" id="statRentRollDetail">potential if fully occupied</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Vacancy $ Lost MTD</div>
+            <div class="card-value kpi-danger" id="statVacancyCost">—</div>
+            <div class="card-subtitle" id="statVacancyCostDetail">estimated rent not collected</div>
+          </div>
+
+        </div>
+
+        <!-- Property list -->
+        <div class="card" id="propertyListCard">
+          <div class="flex justify-between items-center" style="margin-bottom:16px;">
+            <div class="section-heading" style="margin-bottom:0;border-bottom:none;padding-bottom:0;">
+              Properties
+            </div>
+            <div style="font-size:0.78rem;color:var(--color-text-muted);" id="propertyCount"></div>
+          </div>
+          <div id="propertyListContainer"></div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module">
+    import { supabase, requireAuth, renderHeader, renderSidebar } from './auth.js'
+
+    // =========================================================================
+    // STATE
+    // =========================================================================
+    let allProperties = []
+    let currentFilter = 'all'
+
+    // =========================================================================
+    // BOOT
+    // =========================================================================
+    const auth = await requireAuth()
+    if (!auth) throw new Error('Not authenticated')
+
+    const { profile } = auth
+    renderHeader(profile)
+    renderSidebar('portfolio', profile.role)
+
+    document.getElementById('btnRefresh').addEventListener('click', loadPortfolio)
+
+    document.getElementById('vacancyFilter').addEventListener('click', e => {
+      const btn = e.target.closest('.period-btn')
+      if (!btn) return
+      document.querySelectorAll('#vacancyFilter .period-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      currentFilter = btn.dataset.filter
+      renderPropertyList()
+    })
+
+    await loadPortfolio()
+
+    // =========================================================================
+    // LOAD
+    // =========================================================================
+    async function loadPortfolio() {
+      try {
+        const { data, error } = await supabase
+          .from('v_portfolio')
+          .select('*')
+
+        if (error) throw error
+
+        allProperties = data || []
+        render()
+
+      } catch (err) {
+        document.getElementById('loadingState').innerHTML = `
+          <div class="alert alert-danger" style="max-width:520px;">
+            Could not load portfolio: ${escHtml(err.message || String(err))}
+          </div>
+        `
+        document.getElementById('loadingState').style.display = 'flex'
+        document.getElementById('portfolioContent').style.display = 'none'
+      }
+    }
+
+    // =========================================================================
+    // RENDER
+    // =========================================================================
+    function render() {
+      if (allProperties.length === 0) {
+        document.getElementById('noDataNotice').style.display = ''
+      } else {
+        document.getElementById('noDataNotice').style.display = 'none'
+      }
+
+      // Aggregate totals
+      const totalDoors     = allProperties.reduce((s, p) => s + (p.total_units     || 0), 0)
+      const totalOccupied  = allProperties.reduce((s, p) => s + (p.occupied        || 0), 0)
+      const totalVacant    = allProperties.reduce((s, p) => s + (p.vacant          || 0), 0)
+      const totalRentRoll  = allProperties.reduce((s, p) => s + parseFloat(p.total_rent_roll || 0), 0)
+      const totalVacCost   = allProperties.reduce((s, p) => s + parseFloat(p.vacancy_cost_mtd || 0), 0)
+      const occupancyPct   = totalDoors > 0 ? (totalOccupied / totalDoors * 100).toFixed(1) : null
+
+      // Last synced
+      const latestSync = allProperties.reduce((max, p) => {
+        const t = p.last_synced_at ? new Date(p.last_synced_at) : null
+        return t && (!max || t > max) ? t : max
+      }, null)
+
+      document.getElementById('lastSynced').textContent = latestSync
+        ? 'Last synced ' + formatRelative(latestSync.toISOString())
+        : 'Not yet synced — run npm run sync:portfolio'
+
+      // Cards
+      document.getElementById('statDoors').textContent = totalDoors || '—'
+      document.getElementById('statDoorsDetail').textContent =
+        totalDoors > 0 ? `${totalOccupied} occupied, ${totalVacant} vacant` : 'Run sync:portfolio to load'
+
+      document.getElementById('statOccupancy').textContent = occupancyPct ? occupancyPct + '%' : '—'
+      document.getElementById('statOccupancyDetail').textContent =
+        occupancyPct ? `${totalOccupied} of ${totalDoors} units` : 'across portfolio'
+
+      document.getElementById('statRentRoll').textContent =
+        totalRentRoll > 0 ? formatDollars(totalRentRoll) : '—'
+      document.getElementById('statRentRollDetail').textContent =
+        totalRentRoll > 0
+          ? `Collecting ${formatDollars(totalRentRoll - (totalVacCost > 0 ? totalVacCost : 0))} this month`
+          : 'potential if fully occupied'
+
+      const vcEl = document.getElementById('statVacancyCost')
+      vcEl.textContent = totalVacCost > 0 ? formatDollars(totalVacCost) : '$0'
+      vcEl.className   = 'card-value' + (totalVacCost > 0 ? ' kpi-danger' : ' kpi-success')
+      document.getElementById('statVacancyCostDetail').textContent =
+        totalVacant > 0 ? `${totalVacant} unit${totalVacant !== 1 ? 's' : ''} vacant this month` : 'No vacancies'
+
+      renderPropertyList()
+
+      document.getElementById('loadingState').style.display       = 'none'
+      document.getElementById('portfolioContent').style.display   = ''
+    }
+
+    function renderPropertyList() {
+      const container = document.getElementById('propertyListContainer')
+
+      let props = currentFilter === 'vacant'
+        ? allProperties.filter(p => p.vacant > 0)
+        : allProperties
+
+      // Sort: vacancies first (by vacancy cost desc), then rest by name
+      props = [...props].sort((a, b) => {
+        const ac = parseFloat(a.vacancy_cost_mtd || 0)
+        const bc = parseFloat(b.vacancy_cost_mtd || 0)
+        if (bc !== ac) return bc - ac
+        return (a.property_name || '').localeCompare(b.property_name || '')
+      })
+
+      document.getElementById('propertyCount').textContent =
+        props.length + ' propert' + (props.length === 1 ? 'y' : 'ies')
+
+      if (props.length === 0) {
+        container.innerHTML = `
+          <div style="padding:32px 0;text-align:center;color:var(--color-text-muted);font-size:0.9rem;">
+            ${currentFilter === 'vacant' ? 'No properties with vacancies.' : 'No properties found.'}
+          </div>
+        `
+        return
+      }
+
+      const rowsHtml = props.map(p => {
+        const hasVacancy  = p.vacant > 0
+        const fullyOcc    = p.vacant === 0 && p.total_units > 0
+        const vacCost     = parseFloat(p.vacancy_cost_mtd || 0)
+        const rentRoll    = parseFloat(p.total_rent_roll  || 0)
+        const pct         = p.occupancy_pct
+
+        const statusColor = hasVacancy ? 'var(--color-danger)' :
+                            fullyOcc   ? 'var(--color-success)' : 'var(--color-border)'
+
+        // Occupancy bar
+        const occPct    = pct != null ? parseFloat(pct) : null
+        const barColor  = hasVacancy ? 'var(--color-danger)' : 'var(--color-success)'
+
+        // Units breakdown
+        const unitBreakdown = [
+          p.occupied > 0 ? `<span style="color:var(--color-success);">${p.occupied} occ</span>` : '',
+          p.vacant   > 0 ? `<span class="kpi-danger">${p.vacant} vacant</span>` : '',
+          p.notice   > 0 ? `<span style="color:var(--color-warning);">${p.notice} notice</span>` : '',
+        ].filter(Boolean).join(' &middot; ')
+
+        return `
+          <div class="portfolio-property-row" style="border-left-color:${statusColor};">
+            <!-- Property name -->
+            <div class="portfolio-prop-name">
+              <div style="font-weight:700;font-size:0.9rem;">${escHtml(p.property_name)}</div>
+              <div style="font-size:0.75rem;color:var(--color-text-muted);margin-top:2px;">
+                ${p.total_units} unit${p.total_units !== 1 ? 's' : ''}
+              </div>
+            </div>
+
+            <!-- Occupancy bar -->
+            <div class="portfolio-occ-col">
+              <div class="flex items-center gap-8">
+                <div class="portfolio-occ-bar-track">
+                  <div class="portfolio-occ-bar-fill"
+                       style="width:${occPct != null ? occPct : 0}%;background:${barColor}">
+                  </div>
+                </div>
+                <span style="font-size:0.85rem;font-weight:700;min-width:36px;text-align:right;">
+                  ${occPct != null ? occPct + '%' : '—'}
+                </span>
+              </div>
+              <div style="font-size:0.72rem;color:var(--color-text-muted);margin-top:4px;">
+                ${unitBreakdown || '<span style="color:var(--color-text-muted);">unknown</span>'}
+              </div>
+            </div>
+
+            <!-- Rent roll -->
+            <div class="portfolio-money-col">
+              <div style="font-weight:700;font-size:0.9rem;">
+                ${rentRoll > 0 ? formatDollars(rentRoll) : '—'}
+              </div>
+              <div style="font-size:0.72rem;color:var(--color-text-muted);">rent roll</div>
+            </div>
+
+            <!-- Vacancy cost -->
+            <div class="portfolio-money-col">
+              ${vacCost > 0
+                ? `<div class="kpi-danger" style="font-weight:700;font-size:0.9rem;">${formatDollars(vacCost)}</div>
+                   <div style="font-size:0.72rem;color:var(--color-text-muted);">lost MTD</div>`
+                : `<div style="color:var(--color-success);font-weight:700;font-size:0.9rem;">$0</div>
+                   <div style="font-size:0.72rem;color:var(--color-text-muted);">no loss</div>`
+              }
+            </div>
+
+          </div>
+        `
+      }).join('')
+
+      container.innerHTML = `
+        <div class="portfolio-property-list">${rowsHtml}</div>
+        ${allProperties.some(p => p.units_with_rent === 0)
+          ? `<div style="margin-top:12px;font-size:0.75rem;color:var(--color-text-muted);">
+               Some properties show $0 rent roll because market rent was not found in AppFolio.
+               Check raw_payload in the units table or update mapUnit() in sync-units.js.
+             </div>`
+          : ''
+        }
+      `
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+    function formatDollars(n) {
+      n = parseFloat(n) || 0
+      if (n >= 1000000) return '$' + (n / 1000000).toFixed(2) + 'M'
+      if (n >= 1000)    return '$' + (n / 1000).toFixed(1) + 'k'
+      return '$' + Math.round(n).toLocaleString()
+    }
+
+    function formatRelative(iso) {
+      if (!iso) return 'never'
+      const diff  = Date.now() - new Date(iso).getTime()
+      const mins  = Math.floor(diff / 60000)
+      const hours = Math.floor(diff / 3600000)
+      const days  = Math.floor(diff / 86400000)
+      if (mins < 1)   return 'just now'
+      if (mins < 60)  return `${mins}m ago`
+      if (hours < 24) return `${hours}h ago`
+      return `${days}d ago`
+    }
+
+    function escHtml(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g,  '&amp;')
+        .replace(/</g,  '&lt;')
+        .replace(/>/g,  '&gt;')
+        .replace(/"/g,  '&quot;')
+    }
+  </script>
+
+</body>
+</html>

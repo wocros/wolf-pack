@@ -17,13 +17,38 @@ the task genuinely doesn't match any specialist's domain.
 
 ## Who I Am
 
-My name is [YOUR NAME]. I am a property manager.
-My company is called [YOUR COMPANY NAME].
-I manage [NUMBER] units across [CITY/AREA].
+My name is Danyel Brooks. I am a property manager.
+
+My companies:
+- **Beyond Property Management (BPM SD)** — my main operating company. S-Corp, trademarked, sole owner. Website: www.bpmsd.com. Based in San Diego.
+- **Asset Retention** — marketing company for vendors and trust attorneys (in development).
+- **Sunset Trust LLC** — owns a 6-plex at 110 W Robertson, Ridgecrest CA and a duplex at 7987-89 Lincoln, Lemon Grove CA.
+- **Unilaco LLC** — owns 20.1% of a 41-unit apartment complex in Weslaco, TX.
+- **McNorth LLC** — owns a percentage of a 32-unit in McAllen, TX.
+- **McDove LLC** — owns a percentage of a 35-unit in McAllen, TX.
+- **Cherry Hill Ock LLC** — owns 20% of 105 units.
+
+I manage roughly 330 units through Beyond Property Management and asset manage roughly 105 units across San Diego and other markets.
 
 I am NOT a software developer. I am a business operator using AI to automate
 repetitive tasks and run my business better. Keep everything as simple as possible.
 Simple is better than clever.
+
+---
+
+## Core Values
+
+These are the values of Beyond Property Management — and my own personal values.
+Every decision, build, and communication should reflect them.
+
+1. **Does the Right Thing** — Honesty is non-negotiable. Always operate with integrity, even when it's hard.
+2. **Preserves Investments** — Treat every property and every owner's asset with the same care as if it were my own.
+3. **Builds Lasting Relationships** — Prioritize trust, open communication, and mutual respect with tenants, owners, and vendors.
+4. **Win-All Mindset** — Pursue excellence. Constantly improve efficiency and effectiveness.
+5. **Proactive Solutions** — Anticipate problems before they happen. Forward-thinking over reactive.
+6. **Professional Excellence** — Commit to ongoing education and staying at the forefront of the industry.
+7. **Driven by Passion** — Show up with dedication and care in every interaction and every task.
+8. **Strives Beyond Expectations** — Handle every detail with care. Exceed what is expected, every time.
 
 ---
 
@@ -120,6 +145,22 @@ If you're unsure whether something is a compliance build, treat it as one and as
 
 Full specs for each specialist: `.claude/agents/`
 
+### The Playbook Forge — Expert Panel
+
+Call these when designing or reviewing a process, playbook, or service experience.
+Jarvis runs all 7 in parallel and synthesizes their findings into one Forge Report.
+Trigger phrase: *"Run this through the Forge"* or *"What does the Forge say about X?"*
+
+| Discipline | File | Lens |
+|---|---|---|
+| **First Principles** | forge-first-principles | Strip every assumption — does this *have* to work this way? |
+| **Theory of Constraints** | forge-constraints | Find the ONE bottleneck limiting throughput |
+| **Reliability Engineering** | forge-reliability | Checklists and failure modes — make it repeatable |
+| **Service Excellence** | forge-service | Every touchpoint either builds trust or breaks it |
+| **Human Experience** | forge-human-experience | Emotional arc and stakeholder mapping |
+| **Personalization** | forge-personalization | What makes this specific person feel seen — within Fair Housing limits |
+| **Talk Triggers** | forge-talk-triggers | Find the ONE moment worth telling a story about |
+
 ---
 
 ## My Business — What I Do Every Day
@@ -151,8 +192,8 @@ Full specs for each specialist: `.claude/agents/`
 ## My Portfolio
 
 ```
-Portfolio size: [NUMBER] units
-Market(s): [CITY/AREA]
+Portfolio size: ~330 units managed (Beyond Property Management) + ~105 units asset managed
+Market(s): San Diego, CA (primary); Ridgecrest CA, Lemon Grove CA, Weslaco TX, McAllen TX (investment holdings)
 ```
 
 **Do not list individual properties here.** Property data lives in my PM software
@@ -174,70 +215,69 @@ When building something for me, always check this list first.
 Prefer connecting to tools I already use over building something new.
 
 ### Property Management Software
-> Examples: AppFolio, Buildium, Yardi, Propertyware, Rent Manager, DoorLoop, TenantCloud
 ```
-I use: [YOUR PM SOFTWARE]
-I use it for: [leases, maintenance, payments, reporting]
-What I still do manually: [...]
+I use: AppFolio
+I use it for: leases, maintenance, payments, reporting, vendor list, rent collection, accounting (tenant-owner side)
 ```
 
 ### Process & Workflow Software
-> Examples: LeadSimple, Aptly, Process Street, Monday.com, Notion
 ```
-I use: [YOUR PROCESS TOOL or "none"]
-I use it for: [lead follow-up, move-in checklists, SOPs]
+I use: LeadSimple (processes, inbox, email routing, tenant texting), Notion (procedures/SOPs)
 ```
 
 ### Email
-> Examples: Gmail (Google Workspace), Outlook (Microsoft 365)
 ```
-I use: [YOUR EMAIL SYSTEM]
-I send emails to: [tenants / owners / vendors / all three]
+I use: Outlook — routes into LeadSimple
+I send emails to: tenants, owners, and vendors
 ```
 
 ### Internal Communication
-> Examples: Slack, Microsoft Teams, Google Chat
 ```
-I use: [YOUR TEAM CHAT or "just email/text"]
-My team size: [number of people]
+I use: Slack and LeadSimple
 ```
 
 ### Phone System
-> Examples: RingCentral, Zoom Phone, Google Voice, OpenPhone
 ```
-I use: [YOUR PHONE SYSTEM or "my personal cell"]
-Does it support texting? [Yes / No]
+I use: Talkroute (VOIP for the business), Verizon (for US employees' cell phones)
+Does it support texting? Yes (via Talkroute)
 ```
 
 ### Tenant Communication & Texting
-> Examples: OpenPhone, Twilio, built into PM software, manual texting
 ```
-I use: [YOUR TEXTING TOOL]
-I text tenants about: [rent reminders, maintenance updates, renewals]
+I use: LeadSimple
+I text tenants about: rent reminders, maintenance updates, renewals, general communication
 ```
 
 ### Lease & Document Signing
-> Examples: DocuSign, HelloSign, DotLoop, Adobe Sign
 ```
-I use: [YOUR SIGNING TOOL]
+I use: DocuSign for general documents; leases are sent directly from AppFolio
 ```
 
 ### Payments & Rent Collection
 ```
-I use: [YOUR PAYMENT SYSTEM]
-Tenants pay via: [online portal / check / Zelle / mix]
+I use: AppFolio
+Tenants pay via: AppFolio online portal
 ```
 
 ### Accounting
-> Examples: QuickBooks, Wave, Xero
 ```
-I use: [YOUR ACCOUNTING TOOL]
+I use: AppFolio (tenant-owner accounting for BPM)
+        QuickBooks Online — BPM operating account
+        QuickBooks Online — personal net worth / investments
 ```
 
 ### Maintenance Coordination
 ```
-I use: [YOUR MAINTENANCE TOOL or "phone/email"]
-My vendor list lives in: [spreadsheet / contacts / PM software]
+I use: AppFolio (primary — all coordination and work orders)
+My vendor list lives in: AppFolio (primary), Notion, LeadSimple
+```
+
+### Other Tools
+```
+TextExpander — template/snippet storage
+Zinspector — property inspections
+FaxPlus — fax
+Zoom — video conferences
 ```
 
 ---
