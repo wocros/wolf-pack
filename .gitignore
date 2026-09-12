@@ -3,3 +3,7 @@
 *.env
 .env*
 node_modules/
+.env
+!mx-summit/.env.example
+mx-summit/out/
+__pycache__/

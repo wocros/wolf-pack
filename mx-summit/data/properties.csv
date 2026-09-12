@@ -1,0 +1,10 @@
+id,property_name,line_1,city,county_province,postcode,unit_count,owner_id,is_active
+101,Maple Court Apartments,410 Maple Ct,Asheville,NC,28801,6,901,true
+102,Riverbend Townhomes,88 Riverbend Dr,Asheville,NC,28803,4,902,true
+103,Cedar Ridge Flats,1520 Cedar Ridge Rd,Hendersonville,NC,28791,5,903,true
+104,Hilltop Duplex,27 Hilltop Ln,Weaverville,NC,28787,2,904,true
+105,Laurel Park Cottages,300 Laurel Park Ave,Hendersonville,NC,28739,3,905,true
+106,Old Mill Lofts,9 Old Mill St,Asheville,NC,28801,4,906,true
+107,Sunset Terrace,615 Sunset Terrace,Black Mountain,NC,28711,3,903,true
+108,Pinecrest House,72 Pinecrest Way,Asheville,NC,28806,1,901,true
+109,Harbor View Apartments,1201 Harbor View Blvd,Asheville,NC,28804,3,905,true

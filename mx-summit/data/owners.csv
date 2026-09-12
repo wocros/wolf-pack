@@ -1,0 +1,7 @@
+id,first_name,last_name,email,properties,is_active
+901,Dana,Whitfield,dana.whitfield@example.com,101|108,true
+902,Marcus,Bellamy,marcus.bellamy@example.com,102,true
+903,Priya,Raman,priya.raman@example.com,103|107,true
+904,Tom,Okafor,tom.okafor@example.com,104,true
+905,Elena,Castellano,elena.castellano@example.com,105|109,true
+906,Greg,Lindqvist,greg.lindqvist@example.com,106,true
