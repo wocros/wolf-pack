@@ -82,6 +82,16 @@ any hire you've made.
 | 04 | [Vacancy Tracker](garage/blueprints/04-vacancy-tracker.md) | Every vacant day is a dollar lost — track them all |
 | 05 | [Monthly Owner Report](garage/blueprints/05-monthly-owner-report.md) | Professional reports in minutes, not an hour |
 
+**MX Summit track** — built for the Property Meld MX Maintenance Summit. Runs on
+your laptop against a Property Meld export, no server needed. Start at
+[`mx-summit/README.md`](mx-summit/README.md).
+
+| # | Blueprint | The Problem It Solves |
+|---|-----------|----------------------|
+| 07 | [Daily Coordinator Briefing](mx-summit/blueprints/07-daily-coordinator-briefing.md) | Know what's overdue, unassigned, and on site today — before your coffee's cold |
+| 08 | [Owner Work-Order Summary](mx-summit/blueprints/08-owner-work-order-summary.md) | Owners hear about completed work from you, not from their statement |
+| 09 | [Vendor Scorecard](mx-summit/blueprints/09-vendor-scorecard.md) | Replace "that plumber feels slow" with a number you can show him |
+
 ---
 
 ## Who This Is For
