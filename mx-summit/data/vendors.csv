@@ -1,0 +1,8 @@
+id,name,email,phone,categories,is_active
+501,Blue Ridge Plumbing Co.,dispatch@brplumbing.example.com,828-555-0101,PLUMBING,true
+502,Summit HVAC Services,service@summithvac.example.com,828-555-0102,HVAC,true
+503,Bright Spark Electric,jobs@brightspark.example.com,828-555-0103,ELECTRICAL,true
+504,Appliance Doctors,hello@appliancedoctors.example.com,828-555-0104,APPLIANCE,true
+505,Handy Hank Home Repair,hank@handyhank.example.com,828-555-0105,GENERAL|PLUMBING|APPLIANCE,true
+506,Mountain Air Heating & Cooling,office@mountainair.example.com,828-555-0106,HVAC,true
+507,Ridgeline Maintenance Crew,crew@ridgeline.example.com,828-555-0107,GENERAL|ELECTRICAL,true

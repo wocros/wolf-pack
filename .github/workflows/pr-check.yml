@@ -22,7 +22,7 @@ jobs:
         run: |
           echo "Checking Python files..."
           ERRORS=0
-          FILES=$(find projects/ -name "*.py" 2>/dev/null || true)
+          FILES=$(find projects/ mx-summit/ -name "*.py" 2>/dev/null || true)
           if [ -z "$FILES" ]; then
             echo "No Python files found yet — nothing to check."
           else
