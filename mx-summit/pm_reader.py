@@ -147,14 +147,30 @@ def _get_all(path, params=None):
 
 
 def _person_name(person):
-    user = (person or {}).get("user") or {}
-    return f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+    """Name from a person payload. Property Meld returns first_name/last_name at
+    the top level; a nested `user` is used as a fallback so this keeps working
+    either way instead of quietly returning an empty string."""
+    p = person or {}
+    user = p.get("user") or {}
+    first = p.get("first_name") or user.get("first_name", "")
+    last = p.get("last_name") or user.get("last_name", "")
+    return f"{first} {last}".strip()
 
 
 def _flatten_meld(m):
     """Reshape one live API meld into the same flat keys the CSV uses."""
-    accepted = [r for r in (m.get("vendor_assignment_requests") or []) if r.get("accepted_at")]
+    # Property Meld names these `accepted` / `canceled` / `rejected` — NOT
+    # `accepted_at`. Filtering on the _at spelling matches nothing, so every
+    # meld comes back with no vendor at all. Verified against the published
+    # OpenAPI (docs.propertymeld.com/reference/meld_list).
+    accepted = [
+        r for r in (m.get("vendor_assignment_requests") or [])
+        if r.get("accepted") and not r.get("canceled") and not r.get("rejected")
+    ]
     vendor = accepted[0] if accepted else {}
+    # `vendor` on an assignment request is a nested object ({id, name}), not a
+    # bare id, and there is no `vendor_name` key on the request itself.
+    vendor_obj = vendor.get("vendor") or {}
     appt = (m.get("vendorappointment") or [{}])[0] or {}
     return {
         "id": m.get("id"),
@@ -166,7 +182,7 @@ def _flatten_meld(m):
         "created": m.get("created", ""),
         "updated": m.get("updated", ""),
         "due_date": m.get("due_date") or "",
-        "assigned_at": vendor.get("accepted_at") or "",
+        "assigned_at": vendor.get("accepted") or "",
         "scheduled_start": appt.get("scheduled_start") or "",
         "marked_complete": m.get("marked_complete") or "",
         "property_id": m.get("prop") or "",
@@ -174,8 +190,8 @@ def _flatten_meld(m):
         "unit": "",  # unit name lives on the /units/ endpoint; address below is enough for reports
         "unit_address": ((m.get("unit_address") or m.get("prop_address") or {}).get("full_address", "")),
         "tenant_name": "",  # not on the meld payload; left blank in api mode
-        "vendor_id": vendor.get("vendor") or "",
-        "vendor_name": vendor.get("vendor_name") or "",
+        "vendor_id": vendor_obj.get("id") or "",
+        "vendor_name": vendor_obj.get("name") or "",
         "estimate_total": "",   # estimates and invoices are separate endpoints —
         "invoice_amount": "",   # left blank in api mode; see session2/README.md
         "tenant_rating": m.get("tenant_rating") if m.get("tenant_rating") is not None else "",
@@ -187,16 +203,20 @@ def _flatten_meld(m):
 def load_melds():
     """Every meld (work order) as a list of dicts. Keys match melds.csv."""
     if mode() == "api":
-        return [_flatten_meld(m) for m in _get_all("melds", {"limit": 100})]
+        return [_flatten_meld(m) for m in _get_all("meld", {"limit": 100})]
     return _read_csv("melds.csv")
 
 
 def load_vendors():
     if mode() == "api":
         return [{"id": v.get("id"), "name": v.get("name", ""), "email": v.get("email") or "",
-                 "phone": v.get("phone") or "", "categories": "|".join(v.get("categories") or []),
+                 "phone": v.get("phone") or "",
+                 # /vendor/ does not return a `categories` field — it is not in
+                 # the API response, so this is always blank in api mode. The
+                 # sample CSV has it because the CSV is a flattened export.
+                 "categories": "",
                  "is_active": str(v.get("is_active", True)).lower()}
-                for v in _get_all("vendors", {"limit": 100})]
+                for v in _get_all("vendor", {"limit": 100})]
     return _read_csv("vendors.csv")
 
 
@@ -208,17 +228,23 @@ def load_properties():
                  "unit_count": len(p.get("units") or []),
                  "owner_id": (p.get("owners") or [""])[0],
                  "is_active": str(p.get("is_active", True)).lower()}
-                for p in _get_all("properties", {"limit": 100})]
+                for p in _get_all("property", {"limit": 100})]
     return _read_csv("properties.csv")
 
 
 def load_owners():
     if mode() == "api":
         rows = []
-        for o in _get_all("owners", {"limit": 100}):
+        for o in _get_all("owner", {"limit": 100}):
+            # /owner/ returns first_name / last_name / email at the TOP level.
+            # Older code here read them from a nested `user` object; falling
+            # back to that keeps this working either way rather than silently
+            # producing blank owner names.
             user = o.get("user") or {}
-            rows.append({"id": o.get("id"), "first_name": user.get("first_name", ""),
-                         "last_name": user.get("last_name", ""), "email": user.get("email", ""),
+            rows.append({"id": o.get("id"),
+                         "first_name": o.get("first_name") or user.get("first_name", ""),
+                         "last_name": o.get("last_name") or user.get("last_name", ""),
+                         "email": o.get("email") or user.get("email", ""),
                          "properties": "|".join(str(p) for p in (o.get("properties") or [])),
                          "is_active": str(o.get("is_active", True)).lower()})
         return rows

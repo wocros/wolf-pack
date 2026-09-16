@@ -3,6 +3,14 @@
 
 ---
 
+> **MX Summit attendees: this guide is not for you.**
+>
+> The Summit track (`mx-summit/`) runs on your laptop. It needs no server and
+> no credit card. This checklist is for the full multi-day class, where you set
+> up a cloud machine that runs your tools around the clock.
+
+---
+
 ## What You'll Have by the End
 
 By the time we're done, you will have:
