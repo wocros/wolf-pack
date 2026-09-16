@@ -46,14 +46,14 @@ Where we simplified, it says so.
 | `work_category` | `work_category` | We use 5: `PLUMBING`, `HVAC`, `ELECTRICAL`, `APPLIANCE`, `GENERAL`. The real API has more. |
 | `created` / `updated` | `created` / `updated` | |
 | `due_date` | `due_date` | |
-| `assigned_at` | **simplified** from `vendor_assignment_requests[].accepted_at` | When the vendor accepted the job |
+| `assigned_at` | **simplified** from `vendor_assignment_requests[].accepted` | When the vendor accepted the job. Note the field is `accepted`, not `accepted_at` — same for `canceled` and `rejected`. |
 | `scheduled_start` | **simplified** from `vendorappointment[].scheduled_start` | The appointment |
 | `marked_complete` | `marked_complete` | Blank unless status is `COMPLETE` |
 | `property_id` | `prop` | |
 | `unit_id` / `unit` | `unit` / (from `/units/`) | Unit id and its short name |
 | `unit_address` | `unit_address.full_address` | Flattened to a string |
 | `tenant_name` | **simplified** | The API keeps residents on a separate endpoint; we inline a name for readability |
-| `vendor_id` / `vendor_name` | `vendor_assignment_requests[].vendor` / `.vendor_name` | The accepted vendor |
+| `vendor_id` / `vendor_name` | `vendor_assignment_requests[].vendor.id` / `.vendor.name` | The accepted vendor. `vendor` is a nested object `{id, name}` — there is no `vendor_name` key on the request itself. |
 | `estimate_total` | **simplified** from `/estimates/` `total` | Inlined so you don't need a second file |
 | `invoice_amount` | **simplified** from `/invoices/` `amount` | What the job actually cost |
 | `tenant_rating` | `tenant_rating` | 1–5, present on some completed melds only |

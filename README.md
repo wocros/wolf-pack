@@ -5,6 +5,17 @@
 
 ---
 
+> **Here for the MX Summit?** Go straight to **[`mx-summit/`](mx-summit/)**.
+>
+> That track runs entirely on your own laptop — Claude Code, Python 3.11, and
+> this repo. **No server, no hosting bill, no credit card.** The sample Property
+> Meld data is already in the folder.
+>
+> The server setup described below is for the full multi-day Wolf's Garage
+> class. You do not need any of it for the Summit sessions.
+
+---
+
 Every great mechanic has a garage. Tools on the wall. A workbench that knows
 your workflow. A shelf of blueprints for every job you do regularly.
 
