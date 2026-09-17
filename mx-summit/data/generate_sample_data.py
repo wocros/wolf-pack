@@ -10,7 +10,7 @@ Run it yourself any time:
 
 It is seeded, so it writes the exact same four CSV files every time. That means
 everyone in the room is looking at the same data, and the "what good looks like"
-output in solutions/README.md matches what you get on your laptop.
+output shown on the solution/mx-summit branch matches what you get on your laptop.
 
 Column names mirror Property Meld's public API where it makes sense. See
 data/README.md for the mapping and the places we simplified.

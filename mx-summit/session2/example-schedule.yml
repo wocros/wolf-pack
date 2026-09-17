@@ -43,7 +43,8 @@ jobs:
         run: |
           mkdir -p mx-summit/out
           echo "run started $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> mx-summit/out/run.log
-          python3 mx-summit/solutions/daily_briefing.py | tee -a mx-summit/out/run.log
+          # Change this to whatever Claude named your tool in Session 1.
+          python3 mx-summit/my_briefing.py | tee -a mx-summit/out/run.log
           echo "run finished $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> mx-summit/out/run.log
 
       - name: Save the output so you can download it

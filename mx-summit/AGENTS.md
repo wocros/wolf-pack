@@ -33,8 +33,9 @@ All data here is synthetic. No real people or companies.
 | 08 | `blueprints/08-owner-work-order-summary.md` | One owner email DRAFT file per meld completed in the last 24h |
 | 09 | `blueprints/09-vendor-scorecard.md` | Ranked vendor table: jobs, days to complete, rating, cost variance, cancel rate |
 
-Reference implementations live in `solutions/`. Use them to check your work,
-not as something to copy blindly — the user is here to see it built.
+Reference implementations are NOT in this folder. They live on the
+`solution/mx-summit` branch, deliberately, so the user builds theirs first.
+Do not fetch them unless the user asks — they are here to see it built.
 
 ## Constraints
 

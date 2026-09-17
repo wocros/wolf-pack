@@ -72,9 +72,17 @@ emergencies at the top," "add the tenant's name," "make it shorter."
 
 That's the whole session. If you finish early, build a second one.
 
-**Stuck? Or just want to see a finished one?** The `solutions/` folder has a
-working version of all three, and the `solution/mx-summit` branch has the same
-files. `solutions/README.md` shows what good output looks like.
+**Stuck? Or just want to see a finished one?** Working versions of all three
+live on the `solution/mx-summit` branch — deliberately not on `main`, so you
+build yours before you read mine. When you want them:
+
+```
+git fetch origin solution/mx-summit
+git checkout solution/mx-summit -- mx-summit/solutions
+```
+
+That pulls the `solutions/` folder into your working copy without moving you off
+`main`. `solutions/README.md` in there shows what good output looks like.
 
 ---
 
@@ -127,7 +135,6 @@ mx-summit/
   .env.example         ← copy to .env for Session 2 credentials
   data/                ← the synthetic Property Meld export + the script that made it
   blueprints/          ← the three paste-in prompts
-  solutions/           ← working reference builds
   session2/            ← live API, scheduling, governance rails
   out/                 ← where your tools write their output (not committed)
 ```

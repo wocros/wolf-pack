@@ -12,7 +12,7 @@ Two modes, same output either way:
 
 Pick the mode with an environment variable:
 
-    PM_MODE=api python3 mx-summit/solutions/daily_briefing.py
+    PM_MODE=api python3 mx-summit/my_briefing.py
 
 Every function returns a plain list of dictionaries with the SAME keys in both
 modes, so anything you build against the CSV keeps working when you switch to

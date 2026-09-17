@@ -77,8 +77,11 @@ and add one line to cron:
 crontab -e
 ```
 ```
-30 7 * * 1-5  cd /root/wolf-pack && python3 mx-summit/solutions/daily_briefing.py >> mx-summit/out/run.log 2>&1
+30 7 * * 1-5  cd /root/wolf-pack && python3 mx-summit/my_briefing.py >> mx-summit/out/run.log 2>&1
 ```
+Use whatever filename Claude gave your tool in Session 1 — `my_briefing.py`
+here is just an example.
+
 That's "7:30am, Monday through Friday, run the briefing, and append everything
 it says to a log file." The `>> run.log` part is your audit trail (see rails,
 below).
